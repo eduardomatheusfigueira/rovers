@@ -1,0 +1,819 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Protótipo 3D do Rover Frugal 4WD/4WS (Three.js)</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-dark: #0b0f19;
+            --panel-bg: rgba(16, 24, 40, 0.82);
+            --panel-border: rgba(255, 255, 255, 0.12);
+            --accent-orange: #ff6b22;
+            --accent-orange-glow: rgba(255, 107, 34, 0.4);
+            --accent-cyan: #00e5ff;
+            --accent-green: #00e676;
+            --accent-red: #ff1744;
+            --text-main: #f0f4fc;
+            --text-muted: #94a3b8;
+            --font-ui: 'Outfit', sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+        body, html { width: 100%; height: 100%; overflow: hidden; background-color: var(--bg-dark); font-family: var(--font-ui); color: var(--text-main); }
+        #canvas-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
+        .glass-panel { background: var(--panel-bg); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid var(--panel-border); border-radius: 16px; box-shadow: 0 8px 32px 0 rgba(0,0,0,0.5); z-index: 10; transition: all 0.3s ease; }
+        .hud-header { position: absolute; top: 16px; left: 16px; right: 16px; display: flex; justify-content: space-between; align-items: center; padding: 12px 24px; }
+        .brand { display: flex; align-items: center; gap: 16px; }
+        .logo-badge { background: linear-gradient(135deg, var(--accent-orange), #d44a00); color: #fff; font-family: var(--font-mono); font-size: 13px; font-weight: 700; padding: 6px 12px; border-radius: 8px; letter-spacing: 1px; box-shadow: 0 0 15px var(--accent-orange-glow); }
+        .hud-header h1 { font-size: 18px; font-weight: 700; letter-spacing: 0.5px; background: linear-gradient(90deg, #ffffff, #cbd5e1); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .subtitle { font-size: 12px; color: var(--text-muted); }
+        .header-badges { display: flex; gap: 10px; flex-wrap: wrap; }
+        .badge { font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.05); }
+        .badge-accent { color: var(--accent-orange); border-color: rgba(255, 107, 34, 0.3); }
+        .badge-info { color: var(--accent-cyan); border-color: rgba(0, 229, 255, 0.3); }
+        .badge-warning { color: #ffd600; border-color: rgba(255, 214, 0, 0.3); }
+        .badge-success { color: var(--accent-green); border-color: rgba(0, 230, 118, 0.3); }
+        .hud-sidebar-left { position: absolute; top: 90px; left: 16px; width: 300px; padding: 18px; display: flex; flex-direction: column; gap: 12px; }
+        .panel-section-title { font-size: 13px; font-weight: 700; color: #cbd5e1; text-transform: uppercase; letter-spacing: 1px; display: flex; align-items: center; gap: 8px; padding-bottom: 6px; border-bottom: 1px solid rgba(255, 255, 255, 0.08); }
+        .telemetry-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .telem-card { background: rgba(0, 0, 0, 0.25); padding: 10px; border-radius: 10px; border: 1px solid rgba(255, 255, 255, 0.05); }
+        .telem-label { font-size: 10px; color: var(--text-muted); display: block; margin-bottom: 4px; }
+        .telem-value { font-family: var(--font-mono); font-size: 15px; font-weight: 600; color: #fff; display: block; }
+        .telem-value small { font-size: 10px; color: var(--text-muted); }
+        .progress-bar { width: 100%; height: 4px; background: rgba(255, 255, 255, 0.1); border-radius: 2px; margin-top: 6px; overflow: hidden; }
+        .progress-fill { height: 100%; background: var(--accent-orange); transition: width 0.1s linear; }
+        .inclinometer-box { background: rgba(0, 0, 0, 0.3); border-radius: 12px; padding: 12px; border: 1px solid rgba(255, 255, 255, 0.05); }
+        .inc-title { font-size: 11px; color: var(--text-muted); margin-bottom: 8px; text-align: center; }
+        .horizon-wrapper { width: 80px; height: 80px; margin: 0 auto 8px auto; border-radius: 50%; border: 2px solid var(--accent-cyan); overflow: hidden; position: relative; background: linear-gradient(180deg, #1e3a8a 50%, #78350f 50%); }
+        .horizon-disc { width: 100%; height: 100%; position: relative; transition: transform 0.1s linear; }
+        .horizon-line { position: absolute; top: 50%; left: 10%; width: 80%; height: 2px; background: #fff; box-shadow: 0 0 5px #fff; }
+        .inc-values { display: flex; justify-content: space-around; font-family: var(--font-mono); font-size: 11px; }
+        .wheels-contact-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .contact-card { background: rgba(0, 0, 0, 0.25); padding: 8px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.06); font-size: 11px; }
+        .contact-card.active { border-color: var(--accent-cyan); box-shadow: 0 0 8px rgba(0, 229, 255, 0.2); }
+        .contact-card span { display: block; font-size: 10px; color: var(--text-muted); }
+        .contact-card b { font-family: var(--font-mono); color: var(--accent-green); font-size: 13px; }
+        .hud-sidebar-right { position: absolute; top: 90px; right: 16px; width: 300px; padding: 18px; display: flex; flex-direction: column; gap: 10px; }
+        .mode-buttons, .cam-buttons, .action-buttons { display: flex; flex-direction: column; gap: 8px; }
+        .btn-mode { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-radius: 10px; background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.08); color: var(--text-main); cursor: pointer; text-align: left; transition: all 0.2s ease; }
+        .btn-mode:hover { background: rgba(255, 255, 255, 0.08); border-color: rgba(255, 255, 255, 0.2); }
+        .btn-mode.active { background: linear-gradient(90deg, rgba(255, 107, 34, 0.25), rgba(255, 107, 34, 0.05)); border-color: var(--accent-orange); box-shadow: 0 0 15px rgba(255, 107, 34, 0.25); }
+        .btn-mode b { display: block; font-size: 13px; font-weight: 600; }
+        .btn-mode small { display: block; font-size: 10px; color: var(--text-muted); }
+        .cam-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+        .btn-cam { padding: 8px 10px; border-radius: 8px; background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.08); color: var(--text-main); font-size: 12px; font-weight: 600; cursor: pointer; }
+        .btn-cam:hover { background: rgba(255, 255, 255, 0.1); }
+        .btn-cam.active { background: var(--accent-cyan); color: #000; border-color: var(--accent-cyan); box-shadow: 0 0 10px rgba(0, 229, 255, 0.4); }
+        .btn-action { padding: 9px 12px; border-radius: 8px; background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.12); color: #fff; font-size: 12px; font-weight: 600; cursor: pointer; text-align: left; }
+        .btn-action:hover { background: rgba(255, 255, 255, 0.14); }
+        .btn-action.btn-danger { background: rgba(255, 23, 68, 0.15); border-color: var(--accent-red); color: #ff80ab; }
+        .hud-footer { position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 30px; padding: 10px 24px; }
+        .controls-hint { display: flex; gap: 14px; font-size: 12px; color: var(--text-muted); }
+        .controls-hint kbd { background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 4px; padding: 2px 6px; font-family: var(--font-mono); color: #fff; font-size: 10px; }
+        .dpad-container { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+        .dpad-row { display: flex; gap: 4px; }
+        .dpad-btn { width: 32px; height: 32px; border-radius: 6px; background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.15); color: #fff; font-size: 11px; cursor: pointer; display: flex; justify-content: center; align-items: center; }
+        .dpad-btn:active { background: var(--accent-orange); }
+    </style>
+
+    <!-- Three.js UMD and OrbitControls -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+</head>
+<body>
+    <div id="canvas-container"></div>
+
+    <header class="hud-header glass-panel">
+        <div class="brand">
+            <div class="logo-badge">UGV-FRUGAL 3D</div>
+            <div>
+                <h1>Rover 4WD / 4WS Modular</h1>
+                <p class="subtitle">Simulador Cinemático e Dinâmico de Colisão (Three.js)</p>
+            </div>
+        </div>
+        <div class="header-badges">
+            <span class="badge badge-accent">Lei de Blondel: 2E + P = 64cm</span>
+            <span class="badge badge-info">Roda Φ 300mm (r_max = 150mm)</span>
+            <span class="badge badge-warning">C-STS Torsional + Elásticos</span>
+            <span class="badge badge-success">Colisão 4 Rodas Independentes</span>
+        </div>
+    </header>
+
+    <aside class="hud-sidebar-left glass-panel">
+        <div class="panel-section-title">📊 Telemetria Dinâmica</div>
+        <div class="telemetry-grid">
+            <div class="telem-card">
+                <span class="telem-label">Velocidade Linear</span>
+                <span class="telem-value" id="val-speed">0.00 <small>m/s</small></span>
+                <div class="progress-bar"><div class="progress-fill" id="bar-speed" style="width: 0%;"></div></div>
+            </div>
+            <div class="telem-card">
+                <span class="telem-label">Tração Total 4WD</span>
+                <span class="telem-value" id="val-rpm">0 <small>RPM</small></span>
+                <div class="progress-bar"><div class="progress-fill" id="bar-rpm" style="width: 0%;"></div></div>
+            </div>
+        </div>
+        <div class="inclinometer-box">
+            <div class="inc-title">Horizonte Artificial (IMU)</div>
+            <div class="horizon-wrapper">
+                <div class="horizon-disc" id="horizon-disc">
+                    <div class="horizon-line"></div>
+                </div>
+            </div>
+            <div class="inc-values">
+                <span>Pitch: <b id="val-pitch">0.0°</b></span>
+                <span>Roll: <b id="val-roll">0.0°</b></span>
+            </div>
+        </div>
+        <div class="panel-section-title" style="margin-top: 10px;">⚡ Força de Contato Normal (Fz)</div>
+        <div class="wheels-contact-grid">
+            <div class="contact-card" id="card-fl"><span>D.Esq (FL)</span><b id="fz-fl">18.5 N</b></div>
+            <div class="contact-card" id="card-fr"><span>D.Dir (FR)</span><b id="fz-fr">18.5 N</b></div>
+            <div class="contact-card" id="card-rl"><span>T.Esq (RL)</span><b id="fz-rl">18.5 N</b></div>
+            <div class="contact-card" id="card-rr"><span>T.Dir (RR)</span><b id="fz-rr">18.5 N</b></div>
+        </div>
+        <div class="panel-section-title" style="margin-top: 10px;">📦 Geometria de Blondel</div>
+        <div class="contact-card" style="width: 100%;">
+            <span>Escada NBR 9050: E = 17cm | P = 30cm</span>
+            <b style="color: var(--accent-orange);">Roda Φ 300mm / Cubo Φ 90mm</b>
+        </div>
+    </aside>
+
+    <aside class="hud-sidebar-right glass-panel">
+        <div class="panel-section-title">🎮 Modos de Esterçamento 4WS</div>
+        <div class="mode-buttons">
+            <button class="btn-mode active" id="btn-mode-ackermann" data-mode="ackermann">
+                <span class="btn-icon">🔄</span>
+                <div><b>Ackermann Duplo</b><small>Curva Fechada (Contragiro Traseiro)</small></div>
+            </button>
+            <button class="btn-mode" id="btn-mode-crab" data-mode="crab">
+                <span class="btn-icon">🦀</span>
+                <div><b>Modo Caranguejo</b><small>Translação Diagonal (4 Rodas Paralelas)</small></div>
+            </button>
+            <button class="btn-mode" id="btn-mode-spin" data-mode="spin">
+                <span class="btn-icon">🔁</span>
+                <div><b>Giro no Próprio Eixo</b><small>Raio Zero (360° Tangencial)</small></div>
+            </button>
+            <button class="btn-mode" id="btn-mode-stair" data-mode="stair">
+                <span class="btn-icon">🪜</span>
+                <div><b>Modo Escada (Stairs)</b><small>Tração Síncrona em Degraus</small></div>
+            </button>
+        </div>
+        <div class="panel-section-title" style="margin-top: 15px;">🎥 Câmeras & Visualização</div>
+        <div class="cam-buttons">
+            <button class="btn-cam active" id="cam-orbit">Órbita Livre</button>
+            <button class="btn-cam" id="cam-fpv">Piloto FPV</button>
+            <button class="btn-cam" id="cam-top">Topo (X-Ray)</button>
+            <button class="btn-cam" id="cam-side">Lateral</button>
+        </div>
+        <div class="panel-section-title" style="margin-top: 15px;">⚙️ Ações Mecânicas & Pista</div>
+        <div class="action-buttons">
+            <button class="btn-action" id="btn-test-stairs">🪜 Alinhar na Escada de Blondel</button>
+            <button class="btn-action" id="btn-toggle-box">📦 Abrir/Fechar Tampa Caixa</button>
+            <button class="btn-action" id="btn-toggle-explode">💥 Vista Explodida Modular</button>
+            <button class="btn-action btn-danger" id="btn-estop">🛑 Parada Emergência (E-Stop)</button>
+        </div>
+    </aside>
+
+    <footer class="hud-footer glass-panel">
+        <div class="controls-hint">
+            <span><kbd>W</kbd>/<kbd>▲</kbd> Avançar</span>
+            <span><kbd>S</kbd>/<kbd>▼</kbd> Ré</span>
+            <span><kbd>A</kbd>/<kbd>◄</kbd> Esterçar Esq.</span>
+            <span><kbd>D</kbd>/<kbd>►</kbd> Esterçar Dir.</span>
+            <span><kbd>Espaço</kbd> Freio</span>
+        </div>
+        <div class="dpad-container">
+            <button class="dpad-btn up" id="dpad-up">▲</button>
+            <div class="dpad-row">
+                <button class="dpad-btn left" id="dpad-left">◄</button>
+                <button class="dpad-btn stop" id="dpad-stop">■</button>
+                <button class="dpad-btn right" id="dpad-right">►</button>
+            </div>
+            <button class="dpad-btn down" id="dpad-down">▼</button>
+        </div>
+    </footer>
+
+    <script>
+    // ==========================================
+    // CÓDIGO THREE.JS STANDALONE COMPLETO E CONECTADO
+    // COM COLISÃO INDEPENDENTE NAS 4 RODAS E ESCADA DE BLONDEL
+    // ==========================================
+    const container = document.getElementById('canvas-container');
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x0b0f19);
+    scene.fog = new THREE.FogExp2(0x0b0f19, 0.035);
+
+    const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 100);
+    camera.position.set(2.4, 1.8, 2.8);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    container.appendChild(renderer.domElement);
+
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.05;
+    controls.maxPolarAngle = Math.PI / 2 - 0.02;
+    controls.minDistance = 0.8;
+    controls.maxDistance = 15;
+    controls.target.set(0, 0.2, 0);
+
+    // Luzes
+    scene.add(new THREE.AmbientLight(0xffffff, 0.85));
+    const dirLight = new THREE.DirectionalLight(0xfff7ed, 1.8);
+    dirLight.position.set(5, 8, 5);
+    dirLight.castShadow = true;
+    dirLight.shadow.mapSize.width = 2048;
+    dirLight.shadow.mapSize.height = 2048;
+    scene.add(dirLight);
+
+    const cyanLight = new THREE.DirectionalLight(0x00e5ff, 0.6);
+    cyanLight.position.set(-5, 3, -5);
+    scene.add(cyanLight);
+
+    // Chão Base (Y = -0.15)
+    const floor = new THREE.Mesh(
+        new THREE.PlaneGeometry(50, 50),
+        new THREE.MeshStandardMaterial({ color: 0x131926, roughness: 0.4, metalness: 0.2 })
+    );
+    floor.rotation.x = -Math.PI / 2;
+    floor.position.y = -0.15;
+    floor.receiveShadow = true;
+    scene.add(floor);
+
+    const grid = new THREE.GridHelper(50, 50, 0x00e5ff, 0x1e293b);
+    grid.position.y = -0.149;
+    scene.add(grid);
+
+    // ==========================================
+    // ESCADA CONFORME A LEI DE BLONDEL
+    // Espelho E = 17 cm (0.17m) | Piso P = 30 cm (0.30m) -> 2E + P = 64 cm
+    // ==========================================
+    const stairGroup = new THREE.Group();
+    const stepHeight = 0.17; // Espelho E = 170 mm
+    const stepDepth = 0.30;  // Piso P = 300 mm
+    const stairStart = -2.0; // Início da escada em Z
+
+    for (let i = 0; i < 3; i++) {
+        const step = new THREE.Mesh(
+            new THREE.BoxGeometry(2.0, stepHeight * (i + 1), stepDepth),
+            new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.65, metalness: 0.1 })
+        );
+        step.position.set(0, -0.15 + (stepHeight * (i + 1)) / 2, stairStart - (i * stepDepth) - (stepDepth / 2));
+        step.castShadow = true; step.receiveShadow = true;
+        stairGroup.add(step);
+    }
+    // Patamar Superior da Escada
+    const plat = new THREE.Mesh(
+        new THREE.BoxGeometry(2.0, stepHeight * 3, 2.0),
+        new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.65, metalness: 0.1 })
+    );
+    plat.position.set(0, -0.15 + (stepHeight * 3) / 2, stairStart - (3 * stepDepth) - 1.0);
+    plat.castShadow = true; plat.receiveShadow = true;
+    stairGroup.add(plat);
+    scene.add(stairGroup);
+
+    // FUNÇÃO DE AMOSTRAGEM DO RELEVO / COLISÃO DE TERRENO
+    function getTerrainHeight(x, z) {
+        if (Math.abs(x) < 1.0) {
+            if (z <= stairStart - 3 * stepDepth) {
+                return -0.15 + stepHeight * 3; // Patamar Superior (+0.36m)
+            } else if (z <= stairStart - 2 * stepDepth) {
+                return -0.15 + stepHeight * 3; // Degrau 3 (+0.36m)
+            } else if (z <= stairStart - 1 * stepDepth) {
+                return -0.15 + stepHeight * 2; // Degrau 2 (+0.19m)
+            } else if (z <= stairStart) {
+                return -0.15 + stepHeight * 1; // Degrau 1 (+0.02m)
+            }
+        }
+        return -0.15; // Solo Padrão
+    }
+
+    // ==========================================
+    // HELPER: CONECTAR TUBO DE PVC ENTRE 2 PONTOS
+    // ==========================================
+    function createTubeBetween(p1, p2, radius, material) {
+        const distance = p1.distanceTo(p2);
+        const cylinderGeo = new THREE.CylinderGeometry(radius, radius, distance, 16);
+        const cylinder = new THREE.Mesh(cylinderGeo, material);
+        const midpoint = new THREE.Vector3().addVectors(p1, p2).multiplyScalar(0.5);
+        cylinder.position.copy(midpoint);
+        const direction = new THREE.Vector3().subVectors(p2, p1).normalize();
+        const up = new THREE.Vector3(0, 1, 0);
+        cylinder.quaternion.setFromUnitVectors(up, direction);
+        cylinder.castShadow = true;
+        cylinder.receiveShadow = true;
+        return cylinder;
+    }
+
+    // ==========================================
+    // CONSTRUÇÃO DO ROVER COM RODA DE BLONDEL (Φ 300mm)
+    // ==========================================
+    const mats = {
+        pvc: new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.3, metalness: 0.05 }),
+        petgOrange: new THREE.MeshStandardMaterial({ color: 0xff6b22, roughness: 0.45, metalness: 0.1 }),
+        cstsCyan: new THREE.MeshStandardMaterial({ color: 0x00e5ff, roughness: 0.35, metalness: 0.2 }),
+        boxTranslucent: new THREE.MeshPhysicalMaterial({ color: 0xe0f2fe, transparent: true, opacity: 0.75, roughness: 0.15, transmission: 0.8 }),
+        boxLatch: new THREE.MeshStandardMaterial({ color: 0x1e3a8a, roughness: 0.3 }),
+        laptopBody: new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.7, roughness: 0.3 }),
+        laptopScreen: new THREE.MeshBasicMaterial({ color: 0x00e5ff }),
+        rubberBand: new THREE.MeshStandardMaterial({ color: 0xd4a359, roughness: 0.9 }),
+        rubberTread: new THREE.MeshStandardMaterial({ color: 0x111827, roughness: 0.95 }),
+        metalBolt: new THREE.MeshStandardMaterial({ color: 0xd1d5db, metalness: 0.9, roughness: 0.2 }),
+        estopRed: new THREE.MeshStandardMaterial({ color: 0xd50000, roughness: 0.2 }),
+        contactGlow: new THREE.MeshBasicMaterial({ color: 0x00e5ff, transparent: true, opacity: 0.6, side: THREE.DoubleSide })
+    };
+
+    const roverGroup = new THREE.Group();
+    const boxGroup = new THREE.Group();
+    const armsGroup = new THREE.Group();
+    const arms = [];
+    const wheels = [];
+    const cstsModules = [];
+    const steeringKnuckles = [];
+    const rubberBands = [];
+    const contactHalos = [];
+    let boxLid, isLidOpen = false, isExploded = false;
+
+    // 1. Caixa Organizadora Central (Suspensão Pendular)
+    const boxWidth = 0.46, boxLength = 0.58, boxHeight = 0.24;
+    const boxMesh = new THREE.Mesh(new THREE.BoxGeometry(boxWidth, boxHeight, boxLength), mats.boxTranslucent);
+    boxMesh.position.y = 0.05;
+    boxMesh.castShadow = true; boxMesh.receiveShadow = true;
+    boxGroup.add(boxMesh);
+
+    const rimMesh = new THREE.Mesh(new THREE.BoxGeometry(boxWidth + 0.025, 0.02, boxLength + 0.025), mats.petgOrange);
+    rimMesh.position.y = 0.16;
+    boxGroup.add(rimMesh);
+
+    boxLid = new THREE.Group();
+    boxLid.position.set(0, 0.17, 0);
+    const lidMesh = new THREE.Mesh(new THREE.BoxGeometry(boxWidth + 0.035, 0.025, boxLength + 0.035), mats.boxTranslucent);
+    lidMesh.position.set(0, 0.0125, 0);
+    boxLid.add(lidMesh);
+
+    [-1, 1].forEach(side => {
+        const latch = new THREE.Mesh(new THREE.BoxGeometry(0.015, 0.05, 0.08), mats.boxLatch);
+        latch.position.set(side * (boxWidth / 2 + 0.015), 0.01, 0);
+        boxLid.add(latch);
+    });
+
+    const camBase = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.035, 0.035), mats.petgOrange);
+    camBase.position.set(0, 0.04, -0.22);
+    const lens = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.02, 16), new THREE.MeshStandardMaterial({ color: 0x050505 }));
+    lens.rotation.x = Math.PI / 2;
+    lens.position.set(0, 0.04, -0.24);
+    boxLid.add(camBase); boxLid.add(lens);
+
+    const estopBase = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.015, 16), mats.petgOrange);
+    estopBase.position.set(0.09, 0.035, -0.12);
+    const estopBtn = new THREE.Mesh(new THREE.CylinderGeometry(0.026, 0.026, 0.018, 16), mats.estopRed);
+    estopBtn.position.set(0.09, 0.05, -0.12);
+    boxLid.add(estopBase); boxLid.add(estopBtn);
+    boxGroup.add(boxLid);
+
+    // Laptop no fundo da caixa
+    const laptopGroup = new THREE.Group();
+    laptopGroup.position.set(0, -0.04, 0);
+    const lapBase = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.012, 0.30), mats.laptopBody);
+    laptopGroup.add(lapBase);
+    const kb = new THREE.Mesh(new THREE.PlaneGeometry(0.18, 0.24), new THREE.MeshStandardMaterial({ color: 0x0f172a }));
+    kb.rotation.x = -Math.PI / 2;
+    kb.position.set(0, 0.007, 0.02);
+    laptopGroup.add(kb);
+
+    const lapScreen = new THREE.Group();
+    lapScreen.position.set(0, 0.006, -0.14);
+    const scrLid = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.18, 0.008), mats.laptopBody);
+    scrLid.position.set(0, 0.09, 0);
+    const scrDisp = new THREE.Mesh(new THREE.PlaneGeometry(0.20, 0.15), mats.laptopScreen);
+    scrDisp.position.set(0, 0.09, 0.005);
+    lapScreen.add(scrLid); lapScreen.add(scrDisp);
+    lapScreen.rotation.x = 0.40;
+    laptopGroup.add(lapScreen);
+    boxGroup.add(laptopGroup);
+
+    roverGroup.add(boxGroup);
+
+    // 2. Construção dos 4 Braços em V com Rodas de Blondel (r_max = 150mm)
+    const armConfigs = [
+        { id: 'FL', xSign: -1, zSign: -1 },
+        { id: 'FR', xSign: 1,  zSign: -1 },
+        { id: 'RL', xSign: -1, zSign: 1 },
+        { id: 'RR', xSign: 1,  zSign: 1 }
+    ];
+
+    const pipeRadius = 0.014;
+    const wheelRadius = 0.15; // 300 mm de diâmetro (r_max de Blondel)
+    const hubRadius = 0.045;  // 90 mm de diâmetro do cubo C-STS
+
+    armConfigs.forEach(cfg => {
+        const armRoot = new THREE.Group();
+
+        // PONTOS DE UNIÃO MECÂNICA RIGOROSOS
+        const pClamp = new THREE.Vector3(cfg.xSign * 0.22, 0.14, cfg.zSign * 0.27);
+        const pApex = new THREE.Vector3(cfg.xSign * 0.46, 0.42, cfg.zSign * 0.50);
+        const pKnuckleTop = new THREE.Vector3(cfg.xSign * 0.66, 0.10, cfg.zSign * 0.68);
+        const pWheelCenter = new THREE.Vector3(cfg.xSign * 0.72, 0.00, cfg.zSign * 0.68);
+
+        // A. Abraçadeira Clamp na borda da caixa
+        const clamp = new THREE.Mesh(new THREE.BoxGeometry(0.065, 0.065, 0.065), mats.petgOrange);
+        clamp.position.copy(pClamp);
+        armRoot.add(clamp);
+
+        // B. Haste Superior PVC (Ascendente)
+        const pipeAsc = createTubeBetween(pClamp, pApex, pipeRadius, mats.pvc);
+        armRoot.add(pipeAsc);
+
+        // C. Vértice Superior 3D Split-Clamp
+        const apexMesh = new THREE.Mesh(new THREE.SphereGeometry(0.038, 16, 16), mats.petgOrange);
+        apexMesh.position.copy(pApex);
+        armRoot.add(apexMesh);
+
+        // D. Haste Inferior PVC (Descendente)
+        const pipeDesc = createTubeBetween(pApex, pKnuckleTop, pipeRadius, mats.pvc);
+        armRoot.add(pipeDesc);
+
+        // E. Suporte Inferior do Braço
+        const lowerBracket = new THREE.Mesh(new THREE.BoxGeometry(0.055, 0.055, 0.055), mats.petgOrange);
+        lowerBracket.position.copy(pKnuckleTop);
+        armRoot.add(lowerBracket);
+
+        // F. Manga de Esterçamento 4WS Móvel
+        const knuckleGroup = new THREE.Group();
+        knuckleGroup.position.copy(pWheelCenter);
+
+        const knuckleBody = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.09, 0.06), mats.petgOrange);
+        knuckleBody.position.set(0, 0.03, 0);
+        knuckleGroup.add(knuckleBody);
+
+        const servo = new THREE.Mesh(new THREE.BoxGeometry(0.045, 0.04, 0.05), mats.laptopBody);
+        servo.position.set(0, 0.085, 0);
+        knuckleGroup.add(servo);
+
+        // Elásticos de Suspensão
+        const rubberGroup = new THREE.Group();
+        for (let b = -1; b <= 1; b += 2) {
+            const band = new THREE.Mesh(new THREE.CylinderGeometry(0.0035, 0.0035, 0.09, 8), mats.rubberBand);
+            band.position.set(b * 0.022, 0.03, 0);
+            rubberGroup.add(band);
+        }
+        knuckleGroup.add(rubberGroup);
+        rubberBands.push(rubberGroup);
+
+        // Motorredutor de Tração 4WD
+        const motor = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.06, 16), mats.laptopBody);
+        motor.rotation.z = Math.PI / 2;
+        motor.position.set(cfg.xSign * 0.02, 0, 0);
+        knuckleGroup.add(motor);
+
+        // RODA COM 3 RAIOS CURVOS DE BLONDEL E C-STS
+        const wheelGroup = new THREE.Group();
+
+        // Módulo C-STS Torsional no Cubo
+        const cstsGroup = new THREE.Group();
+        const innerRing = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.025, 16), mats.petgOrange);
+        innerRing.rotation.z = Math.PI / 2;
+        cstsGroup.add(innerRing);
+
+        // Espiral Complacente
+        const spiralShape = new THREE.Shape();
+        const spiralPoints = [];
+        for (let i = 0; i <= 24; i++) {
+            const t = i / 24;
+            const r = 0.020 + t * (hubRadius - 0.020);
+            const theta = t * Math.PI * 2 * 1.8 * cfg.xSign;
+            spiralPoints.push(new THREE.Vector2(Math.cos(theta) * r, Math.sin(theta) * r));
+        }
+        spiralShape.moveTo(spiralPoints[0].x, spiralPoints[0].y);
+        for (let i = 1; i <= 24; i++) spiralShape.lineTo(spiralPoints[i].x, spiralPoints[i].y);
+        for (let i = 24; i >= 0; i--) {
+            const t = i / 24;
+            const r = 0.016 + t * (hubRadius - 0.020);
+            const theta = t * Math.PI * 2 * 1.8 * cfg.xSign;
+            spiralShape.lineTo(Math.cos(theta) * r, Math.sin(theta) * r);
+        }
+        spiralShape.closePath();
+        const spiralMesh = new THREE.Mesh(new THREE.ExtrudeGeometry(spiralShape, { depth: 0.018, bevelEnabled: false }), mats.cstsCyan);
+        spiralMesh.rotation.y = Math.PI / 2;
+        spiralMesh.position.x = -0.009;
+        cstsGroup.add(spiralMesh);
+
+        const outerRing = new THREE.Mesh(new THREE.TorusGeometry(hubRadius, 0.006, 8, 24), mats.petgOrange);
+        outerRing.rotation.y = Math.PI / 2;
+        cstsGroup.add(outerRing);
+        wheelGroup.add(cstsGroup);
+
+        // 3 Raios Curvos de Blondel (Alcance de 150 mm)
+        for (let s = 0; s < 3; s++) {
+            const spokeShape = new THREE.Shape();
+            const angleOffset = (s * Math.PI * 2) / 3;
+            const points = [];
+            for (let i = 0; i <= 14; i++) {
+                const t = i / 14;
+                const r = hubRadius + t * (wheelRadius - hubRadius);
+                const theta = angleOffset + Math.pow(t, 0.85) * 1.55 * cfg.xSign;
+                points.push(new THREE.Vector2(Math.cos(theta) * r, Math.sin(theta) * r));
+            }
+            spokeShape.moveTo(points[0].x, points[0].y);
+            for (let i = 1; i <= 14; i++) spokeShape.lineTo(points[i].x, points[i].y);
+            for (let i = 14; i >= 0; i--) {
+                const t = i / 14;
+                const r = (hubRadius - 0.008) + t * (wheelRadius - hubRadius);
+                const theta = angleOffset + Math.pow(t, 0.85) * 1.55 * cfg.xSign + 0.15 * (1 - t * 0.3);
+                spokeShape.lineTo(Math.cos(theta) * r, Math.sin(theta) * r);
+            }
+            spokeShape.closePath();
+
+            const spokeGeo = new THREE.ExtrudeGeometry(spokeShape, { depth: 0.022, bevelEnabled: true, bevelSegments: 2, bevelSize: 0.002, bevelThickness: 0.002 });
+            const spokeMesh = new THREE.Mesh(spokeGeo, mats.petgOrange);
+            spokeMesh.rotation.y = Math.PI / 2;
+            spokeMesh.position.x = -0.011;
+            wheelGroup.add(spokeMesh);
+
+            const tipPoint = points[14];
+            const gripMesh = new THREE.Mesh(new THREE.BoxGeometry(0.028, 0.014, 0.030), mats.rubberTread);
+            gripMesh.position.set(0, tipPoint.y, tipPoint.x);
+            wheelGroup.add(gripMesh);
+        }
+
+        const bolt = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.04, 8), mats.metalBolt);
+        bolt.rotation.z = Math.PI / 2;
+        wheelGroup.add(bolt);
+
+        wheelGroup.position.set(cfg.xSign * 0.065, 0, 0);
+        knuckleGroup.add(wheelGroup);
+
+        // Halo Indicador de Ponto de Contato
+        const halo = new THREE.Mesh(new THREE.RingGeometry(0.04, 0.08, 16), mats.contactGlow);
+        halo.rotation.x = -Math.PI / 2;
+        halo.position.set(0, -0.148, 0);
+        knuckleGroup.add(halo);
+        contactHalos.push(halo);
+
+        steeringKnuckles.push(knuckleGroup);
+        wheels.push(wheelGroup);
+        cstsModules.push(cstsGroup);
+
+        armRoot.add(knuckleGroup);
+        arms.push(armRoot);
+        armsGroup.add(armRoot);
+    });
+
+    roverGroup.add(armsGroup);
+    scene.add(roverGroup);
+
+    // ==========================================
+    // MOTOR DE FÍSICA E COLISÃO DAS 4 RODAS
+    // ==========================================
+    const state = {
+        x: 0, z: 0, y: 0, heading: 0, pitch: 0, roll: 0,
+        speed: 0, maxSpeed: 1.5, accel: 2.5, decel: 3.5,
+        steerAngle: 0, maxSteerAngle: Math.PI / 4,
+        steerMode: 'ackermann', cameraMode: 'orbit', isEStopped: false, keys: {},
+        wheelHeights: [0, 0, 0, 0],
+        normalForces: [18.5, 18.5, 18.5, 18.5]
+    };
+
+    window.addEventListener('keydown', e => { state.keys[e.key.toLowerCase()] = true; });
+    window.addEventListener('keyup', e => { state.keys[e.key.toLowerCase()] = false; });
+
+    document.querySelectorAll('.btn-mode').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.btn-mode').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            state.steerMode = btn.dataset.mode;
+        });
+    });
+
+    document.querySelectorAll('.btn-cam').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.btn-cam').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            const mode = btn.id.replace('cam-', '');
+            state.cameraMode = mode;
+            controls.enabled = (mode === 'orbit');
+        });
+    });
+
+    document.getElementById('btn-toggle-box').addEventListener('click', () => {
+        isLidOpen = !isLidOpen;
+        boxLid.rotation.x = isLidOpen ? -1.6 : 0;
+    });
+
+    document.getElementById('btn-toggle-explode').addEventListener('click', () => {
+        isExploded = !isExploded;
+        const offset = isExploded ? 0.15 : 0;
+        arms.forEach((arm, i) => {
+            const xSign = (i % 2 === 0) ? -1 : 1;
+            const zSign = (i < 2) ? -1 : 1;
+            arm.position.x = xSign * offset;
+            arm.position.z = zSign * offset;
+            arm.position.y = offset * 0.4;
+        });
+        boxGroup.position.y = isExploded ? -0.12 : 0;
+    });
+
+    document.getElementById('btn-estop').addEventListener('click', () => {
+        state.isEStopped = !state.isEStopped;
+        const btn = document.getElementById('btn-estop');
+        btn.textContent = state.isEStopped ? '⚡ Reativar Sistema' : '🛑 Parada Emergência (E-Stop)';
+        btn.style.background = state.isEStopped ? 'red' : '';
+        if (state.isEStopped) state.speed = 0;
+    });
+
+    document.getElementById('btn-test-stairs').addEventListener('click', () => {
+        state.x = 0; state.z = -1.0; state.heading = 0;
+        state.steerMode = 'stair';
+        document.querySelectorAll('.btn-mode').forEach(b => b.classList.remove('active'));
+        document.getElementById('btn-mode-stair').classList.add('active');
+    });
+
+    const setupDpad = (id, key) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.addEventListener('mousedown', () => { state.keys[key] = true; });
+        el.addEventListener('mouseup', () => { state.keys[key] = false; });
+        el.addEventListener('touchstart', e => { e.preventDefault(); state.keys[key] = true; });
+        el.addEventListener('touchend', e => { e.preventDefault(); state.keys[key] = false; });
+    };
+    setupDpad('dpad-up', 'w'); setupDpad('dpad-down', 's');
+    setupDpad('dpad-left', 'a'); setupDpad('dpad-right', 'd');
+    document.getElementById('dpad-stop')?.addEventListener('click', () => { state.speed = 0; });
+
+    let lastTime = performance.now();
+    function animate(currentTime) {
+        requestAnimationFrame(animate);
+        const dt = Math.min((currentTime - lastTime) / 1000, 0.1);
+        lastTime = currentTime;
+
+        if (!state.isEStopped) {
+            const throttle = (state.keys['w'] || state.keys['arrowup']) ? 1 :
+                             (state.keys['s'] || state.keys['arrowdown']) ? -1 : 0;
+            if (throttle !== 0) {
+                state.speed = THREE.MathUtils.clamp(state.speed + throttle * state.accel * dt, -0.7, state.maxSpeed);
+            } else {
+                state.speed = THREE.MathUtils.damp(state.speed, 0, 3.5, dt);
+            }
+            if (state.keys[' ']) state.speed = THREE.MathUtils.damp(state.speed, 0, 8, dt);
+
+            const steerDir = (state.keys['a'] || state.keys['arrowleft']) ? 1 :
+                            (state.keys['d'] || state.keys['arrowright']) ? -1 : 0;
+            state.steerAngle = THREE.MathUtils.damp(state.steerAngle, steerDir * state.maxSteerAngle, 6, dt);
+
+            let steerAngles = [0, 0, 0, 0], vx = 0, vz = 0, yawRate = 0;
+            switch (state.steerMode) {
+                case 'ackermann':
+                    steerAngles = [state.steerAngle, state.steerAngle, -state.steerAngle, -state.steerAngle];
+                    yawRate = (state.speed / 0.8) * Math.sin(state.steerAngle) * 1.5;
+                    state.heading += yawRate * dt;
+                    vx = -Math.sin(state.heading) * state.speed;
+                    vz = -Math.cos(state.heading) * state.speed;
+                    break;
+                case 'crab':
+                    steerAngles = [state.steerAngle, state.steerAngle, state.steerAngle, state.steerAngle];
+                    const crabH = state.heading + state.steerAngle;
+                    vx = -Math.sin(crabH) * state.speed;
+                    vz = -Math.cos(crabH) * state.speed;
+                    break;
+                case 'spin':
+                    const spinAngle = Math.PI / 4;
+                    steerAngles = [spinAngle, -spinAngle, -spinAngle, spinAngle];
+                    if (Math.abs(state.speed) > 0.05) state.heading += (state.speed / 0.4) * dt;
+                    break;
+                case 'stair':
+                    steerAngles = [0, 0, 0, 0];
+                    vx = -Math.sin(state.heading) * state.speed * 0.75;
+                    vz = -Math.cos(state.heading) * state.speed * 0.75;
+                    break;
+            }
+
+            state.x += vx * dt;
+            state.z += vz * dt;
+
+            // ==========================================
+            // CÁLCULO DE COLISÃO INDEPENDENTE DAS 4 RODAS
+            // ==========================================
+            const wheelOffsets = [
+                { x: -0.72, z: -0.68 }, // FL
+                { x:  0.72, z: -0.68 }, // FR
+                { x: -0.72, z:  0.68 }, // RL
+                { x:  0.72, z:  0.68 }  // RR
+            ];
+
+            const curWheelY = [];
+            for (let i = 0; i < 4; i++) {
+                // Posição mundial da roda i
+                const localOff = new THREE.Vector3(wheelOffsets[i].x, 0, wheelOffsets[i].z).applyAxisAngle(new THREE.Vector3(0, 1, 0), state.heading);
+                const wx = state.x + localOff.x;
+                const wz = state.z + localOff.z;
+
+                const terrainY = getTerrainHeight(wx, wz);
+                const targetY = terrainY + 0.15; // Roda assentada no topo do solo
+                state.wheelHeights[i] = THREE.MathUtils.damp(state.wheelHeights[i], targetY, 10, dt);
+                curWheelY.push(state.wheelHeights[i]);
+
+                // Halo de contato
+                const isContact = Math.abs(state.wheelHeights[i] - targetY) < 0.03;
+                contactHalos[i].visible = isContact;
+            }
+
+            // Cinemática Multicorpo do Chassi
+            const frontY = (curWheelY[0] + curWheelY[1]) / 2;
+            const rearY = (curWheelY[2] + curWheelY[3]) / 2;
+            const leftY = (curWheelY[0] + curWheelY[2]) / 2;
+            const rightY = (curWheelY[1] + curWheelY[3]) / 2;
+
+            const targetBodyY = (frontY + rearY) / 2;
+            const targetPitch = Math.atan2(frontY - rearY, 1.36);
+            const targetRoll = Math.atan2(rightY - leftY, 1.44);
+
+            state.y = THREE.MathUtils.damp(state.y, targetBodyY, 8, dt);
+            state.pitch = THREE.MathUtils.damp(state.pitch, targetPitch, 8, dt);
+            state.roll = THREE.MathUtils.damp(state.roll, targetRoll, 8, dt);
+
+            // Reação Normal e Transferência de Carga (Wong, 2022)
+            const totalWeight = 74.0; // 7,5 kg * 9.81 m/s²
+            const pitchFactor = Math.sin(state.pitch);
+            state.normalForces[0] = Math.max(2, (totalWeight / 4) - pitchFactor * 12);
+            state.normalForces[1] = Math.max(2, (totalWeight / 4) - pitchFactor * 12);
+            state.normalForces[2] = Math.max(2, (totalWeight / 4) + pitchFactor * 12);
+            state.normalForces[3] = Math.max(2, (totalWeight / 4) + pitchFactor * 12);
+
+            // Efeito Pêndulo da Caixa
+            boxGroup.rotation.x = -(state.speed / state.maxSpeed) * 0.04 + state.pitch * 0.7;
+
+            roverGroup.position.set(state.x, state.y, state.z);
+            roverGroup.rotation.y = state.heading;
+            roverGroup.rotation.x = state.pitch;
+            roverGroup.rotation.z = state.roll;
+
+            for (let i = 0; i < 4; i++) {
+                if (steeringKnuckles[i]) steeringKnuckles[i].rotation.y = steerAngles[i];
+            }
+            wheels.forEach(w => w.rotation.x += state.speed * dt * 7);
+
+            const bounce = (Math.abs(state.speed) > 0.1) ? 0.08 : 0.01;
+            rubberBands.forEach((rb, idx) => {
+                rb.scale.set(1.0, 1.0 + Math.sin(Date.now() * 0.015 + idx) * bounce, 1.0);
+            });
+            cstsModules.forEach((csts, idx) => {
+                csts.rotation.x = Math.sin(Date.now() * 0.02 + idx) * (bounce * 0.8);
+            });
+
+            // Câmeras
+            if (state.cameraMode === 'orbit') {
+                controls.target.set(state.x, state.y + 0.15, state.z);
+            } else if (state.cameraMode === 'fpv') {
+                const fpvPos = new THREE.Vector3(0, 0.24, -0.24).applyAxisAngle(new THREE.Vector3(0, 1, 0), state.heading).add(new THREE.Vector3(state.x, state.y, state.z));
+                camera.position.copy(fpvPos);
+                const look = new THREE.Vector3(0, 0.20, -2.5).applyAxisAngle(new THREE.Vector3(0, 1, 0), state.heading).add(new THREE.Vector3(state.x, state.y, state.z));
+                camera.lookAt(look);
+            } else if (state.cameraMode === 'top') {
+                camera.position.set(state.x, state.y + 4.2, state.z + 0.01);
+                camera.lookAt(state.x, state.y, state.z);
+            } else if (state.cameraMode === 'side') {
+                const side = new THREE.Vector3(2.4, 0.4, 0).applyAxisAngle(new THREE.Vector3(0, 1, 0), state.heading);
+                camera.position.copy(new THREE.Vector3(state.x, state.y, state.z).add(side));
+                camera.lookAt(state.x, state.y + 0.15, state.z);
+            }
+
+            // HUD Telemetria
+            const speedMs = Math.abs(state.speed);
+            document.getElementById('val-speed').innerHTML = `${speedMs.toFixed(2)} <small>m/s</small>`;
+            document.getElementById('bar-speed').style.width = `${(speedMs / state.maxSpeed) * 100}%`;
+            const rpm = Math.round((speedMs / (0.30 * Math.PI)) * 60);
+            document.getElementById('val-rpm').innerHTML = `${rpm} <small>RPM</small>`;
+            document.getElementById('bar-rpm').style.width = `${(rpm / 120) * 100}%`;
+            document.getElementById('val-pitch').textContent = `${(state.pitch * 57.3).toFixed(1)}°`;
+            document.getElementById('val-roll').textContent = `${(state.roll * 57.3).toFixed(1)}°`;
+            const horizon = document.getElementById('horizon-disc');
+            if (horizon) horizon.style.transform = `rotate(${-state.roll * 57.3}deg) translateY(${state.pitch * 35}px)`;
+
+            document.getElementById('fz-fl').textContent = `${state.normalForces[0].toFixed(1)} N`;
+            document.getElementById('fz-fr').textContent = `${state.normalForces[1].toFixed(1)} N`;
+            document.getElementById('fz-rl').textContent = `${state.normalForces[2].toFixed(1)} N`;
+            document.getElementById('fz-rr').textContent = `${state.normalForces[3].toFixed(1)} N`;
+        }
+
+        if (state.cameraMode === 'orbit') controls.update();
+        renderer.render(scene, camera);
+    }
+    requestAnimationFrame(animate);
+
+    window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+    </script>
+</body>
+</html>
