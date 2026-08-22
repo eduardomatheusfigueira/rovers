@@ -3,186 +3,172 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Protótipo 3D Interativo — Rover Frugal 4WD/4WS (Three.js)</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <title>Gêmeo Digital — Rover Frugal 4WD/4WS</title>
     <link rel="stylesheet" href="style.css">
-    
-    <!-- Three.js e Addons via Import Map -->
     <script type="importmap">
     {
         "imports": {
-            "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-            "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            "three": "./vendor/three/three.module.js",
+            "three/addons/controls/OrbitControls.js": "./vendor/three/OrbitControls.js"
         }
     }
     </script>
 </head>
 <body>
-    <!-- Canvas 3D -->
     <div id="canvas-container"></div>
 
-    <!-- Interface HUD Superior -->
-    <header class="hud-header glass-panel">
-        <div class="brand">
-            <div class="logo-badge">UGV-FRUGAL</div>
+    <header class="hud-header glass">
+        <div class="marca">
+            <div class="selo">UGV-FRUGAL</div>
             <div>
-                <h1>Rover 4WD / 4WS Modular</h1>
-                <p class="subtitle">Simulador Cinemático e Dinâmico 3D (Three.js)</p>
+                <h1>Gêmeo Digital do Rover 4WD/4WS</h1>
+                <p class="sub">Percurso de homologação — Itaipu Parquetec</p>
             </div>
         </div>
-        <div class="header-badges">
-            <span class="badge badge-accent">Geometria Radial em X</span>
-            <span class="badge badge-info">Pêndulo no 1/3 Superior</span>
-            <span class="badge badge-warning">Suspensão C-STS em Elásticos</span>
-            <span class="badge badge-success">4WS Omnidirecional (δM = 3)</span>
+        <div class="etiquetas">
+            <span class="tag tag-laranja">Roda <b id="badge-roda">—</b></span>
+            <span class="tag tag-verde" id="badge-sincrona">marcha síncrona ✔</span>
+            <span class="tag tag-ciano">Massa <b id="badge-massa">—</b></span>
+            <span class="tag tag-cinza"><b id="badge-escada">—</b></span>
+            <span class="tag tag-cinza">rev. <b id="badge-revisao">—</b></span>
         </div>
     </header>
 
-    <!-- Painel de Telemetria Lateral Esquerdo -->
-    <aside class="hud-sidebar-left glass-panel">
-        <div class="panel-section-title">
-            <span class="icon">📊</span> Telemetria em Tempo Real
-        </div>
+    <div id="faixa-aviso" class="faixa-aviso"></div>
 
-        <div class="telemetry-grid">
-            <div class="telem-card">
-                <span class="telem-label">Velocidade Linear</span>
-                <span class="telem-value" id="val-speed">0.00 <small>m/s</small></span>
-                <div class="progress-bar"><div class="progress-fill" id="bar-speed" style="width: 0%;"></div></div>
-            </div>
-            <div class="telem-card">
-                <span class="telem-label">Tração Total 4WD</span>
-                <span class="telem-value" id="val-rpm">0 <small>RPM</small></span>
-                <div class="progress-bar"><div class="progress-fill" id="bar-rpm" style="width: 0%;"></div></div>
-            </div>
-        </div>
+    <!-- ================= PAINEL ESQUERDO: TELEMETRIA ================= -->
+    <aside class="lateral esquerda glass">
+        <div class="titulo"><span>📊</span> Telemetria</div>
 
-        <div class="inclinometer-box">
-            <div class="inc-title">Horizonte Artificial (IMU)</div>
-            <div class="horizon-wrapper">
-                <div class="horizon-disc" id="horizon-disc">
-                    <div class="horizon-line"></div>
-                </div>
+        <div class="cartoes">
+            <div class="cartao">
+                <span class="rotulo">Velocidade</span>
+                <span class="valor" id="val-speed">0.00 <small>m/s</small></span>
+                <div class="barra"><div class="preenche" id="bar-speed"></div></div>
             </div>
-            <div class="inc-values">
-                <span>Pitch: <b id="val-pitch">0.0°</b></span>
-                <span>Roll: <b id="val-roll">0.0°</b></span>
+            <div class="cartao">
+                <span class="rotulo">Choque na carga</span>
+                <span class="valor" id="val-carga">0.00 <small>g</small></span>
+                <div class="barra"><div class="preenche" id="bar-carga"></div></div>
+                <span class="nota">pico da missão: <b id="val-carga-pico">0.00 g</b></span>
             </div>
         </div>
 
-        <div class="panel-section-title" style="margin-top: 15px;">
-            <span class="icon">🔄</span> Esterçamento 4WS (Ângulos β)
-        </div>
-        <div class="wheels-steer-grid">
-            <div class="wheel-dial">
-                <span>D.Esq (β₁)</span>
-                <b id="val-steer-fl">0°</b>
+        <div class="horizonte-caixa">
+            <div class="titulo-mini">Horizonte artificial (IMU)</div>
+            <div class="horizonte-janela">
+                <div class="horizonte-disco" id="horizon-disc"><div class="horizonte-linha"></div></div>
             </div>
-            <div class="wheel-dial">
-                <span>D.Dir (β₂)</span>
-                <b id="val-steer-fr">0°</b>
-            </div>
-            <div class="wheel-dial">
-                <span>T.Esq (β₃)</span>
-                <b id="val-steer-rl">0°</b>
-            </div>
-            <div class="wheel-dial">
-                <span>T.Dir (β₄)</span>
-                <b id="val-steer-rr">0°</b>
+            <div class="horizonte-vals">
+                <span>Arfagem <b id="val-pitch">0.0°</b></span>
+                <span>Rolagem <b id="val-roll">0.0°</b></span>
+                <span>Limiar <b id="val-limiar">—</b></span>
             </div>
         </div>
 
-        <div class="panel-section-title" style="margin-top: 15px;">
-            <span class="icon">📦</span> Carga Útil (Notebook TI)
+        <div class="titulo"><span>⚡</span> Energia e térmica</div>
+        <div class="cartoes">
+            <div class="cartao">
+                <span class="rotulo">Estado de carga</span>
+                <span class="valor" id="val-soc">100 <small>%</small></span>
+                <div class="barra"><div class="preenche" id="bar-soc"></div></div>
+                <span class="nota"><b id="val-corrente">0.0 A</b> · <b id="val-tensao">0 V</b> · <b id="val-wh">0 Wh</b></span>
+            </div>
+            <div class="cartao">
+                <span class="rotulo">Enrolamento do motor</span>
+                <span class="valor" id="val-temp">35 <small>°C</small></span>
+                <div class="barra"><div class="preenche" id="bar-temp"></div></div>
+                <span class="nota">margem de torque: <b id="val-margem">—</b> · <b id="val-torque">0 N·m</b></span>
+            </div>
         </div>
-        <div class="payload-status">
-            <div class="status-indicator online"></div>
-            <span>Acomodado no 1/3 Inferior (CG Rebaixado)</span>
+
+        <div class="titulo"><span>🛞</span> Rodas — 4WS, contato e C-STS</div>
+        <table class="tabela-rodas">
+            <thead><tr><th>Roda</th><th>β</th><th>Fz</th><th>contato</th><th>C-STS</th></tr></thead>
+            <tbody>
+                <tr><td>D.Esq</td><td id="val-steer-fl">0°</td><td id="fz-fl">—</td><td id="contato-fl">—</td><td id="csts-fl">0°</td></tr>
+                <tr><td>D.Dir</td><td id="val-steer-fr">0°</td><td id="fz-fr">—</td><td id="contato-fr">—</td><td id="csts-fr">0°</td></tr>
+                <tr><td>T.Esq</td><td id="val-steer-rl">0°</td><td id="fz-rl">—</td><td id="contato-rl">—</td><td id="csts-rl">0°</td></tr>
+                <tr><td>T.Dir</td><td id="val-steer-rr">0°</td><td id="fz-rr">—</td><td id="contato-rr">—</td><td id="csts-rr">0°</td></tr>
+            </tbody>
+        </table>
+
+        <div class="titulo"><span>🚨</span> Alertas do supervisor</div>
+        <div id="painel-alertas" class="alertas"></div>
+    </aside>
+
+    <!-- ================= PAINEL DIREITO: CONTROLE ================= -->
+    <aside class="lateral direita glass">
+        <div class="titulo"><span>🎮</span> Modo cinemático</div>
+        <div class="botoes-modo">
+            <button class="btn-mode active" data-mode="ackermann">
+                <span class="ico">🔄</span><div><b>Ackermann duplo</b><small>curva fechada, contragiro traseiro</small></div>
+            </button>
+            <button class="btn-mode" data-mode="crab">
+                <span class="ico">🦀</span><div><b>Caranguejo</b><small>translação pura, 4 rodas paralelas</small></div>
+            </button>
+            <button class="btn-mode" data-mode="spin">
+                <span class="ico">🔁</span><div><b>Giro no eixo</b><small>raio zero, β = ±49°</small></div>
+            </button>
+            <button class="btn-mode" data-mode="stair">
+                <span class="ico">🪜</span><div><b>Modo escada</b><small>eixos travados, tração síncrona</small></div>
+            </button>
+        </div>
+
+        <div class="titulo"><span>🔧</span> Estágios de suspensão</div>
+        <div class="chaves">
+            <label class="chave"><input type="checkbox" id="sw-aro" data-toggle checked><span>Aro elástico</span>
+                <small>sem ele o cubo cai 105 mm por raio em piso plano</small></label>
+            <label class="chave"><input type="checkbox" id="sw-elasticos" data-toggle checked><span>Elásticos (90 mm)</span>
+                <small>estágio 2: absorve a queda da transferência de raio</small></label>
+            <label class="chave"><input type="checkbox" id="sw-csts" data-toggle checked><span>C-STS torsional</span>
+                <small>estágio 1: 10,3 N·m/rad no cubo</small></label>
+        </div>
+
+        <div class="titulo"><span>🎥</span> Câmeras</div>
+        <div class="botoes-cam">
+            <button class="btn-cam active" data-cam="orbita">Órbita</button>
+            <button class="btn-cam" data-cam="fpv">FPV do piloto</button>
+            <button class="btn-cam" data-cam="topo">Topo</button>
+            <button class="btn-cam" data-cam="lateral">Lateral</button>
+        </div>
+
+        <div class="titulo"><span>🧪</span> Ensaios e ações</div>
+        <div class="acoes">
+            <button class="btn-acao" id="btn-escada">🪜 Ir ao pé da escadaria</button>
+            <button class="btn-acao" id="btn-variante">🔬 Comparar com a roda Φ300 (R1)</button>
+            <button class="btn-acao" id="btn-tampa">📦 Abrir/fechar tampa</button>
+            <button class="btn-acao" id="btn-explodir">💥 Vista explodida</button>
+            <button class="btn-acao" id="btn-csv">💾 Exportar telemetria (CSV)</button>
+            <button class="btn-acao" id="btn-reiniciar">↺ Reiniciar missão</button>
+            <button class="btn-acao perigo" id="btn-estop">🛑 Parada de emergência</button>
+        </div>
+
+        <div class="titulo"><span>🎯</span> Missão</div>
+        <div class="missao">
+            <div><span>Fase</span><b id="val-fase">—</b></div>
+            <div><span>Distância</span><b id="val-dist">0 m</b></div>
+            <div><span>Tempo</span><b id="val-tempo">0 s</b></div>
         </div>
     </aside>
 
-    <!-- Painel de Controle Lateral Direito -->
-    <aside class="hud-sidebar-right glass-panel">
-        <div class="panel-section-title">
-            <span class="icon">🎮</span> Modos de Esterçamento 4WS
+    <footer class="hud-rodape glass">
+        <div class="dicas">
+            <span><kbd>W</kbd>/<kbd>S</kbd> avanço</span>
+            <span><kbd>A</kbd>/<kbd>D</kbd> esterço</span>
+            <span><kbd>Espaço</kbd> freio</span>
+            <span><kbd>Arrastar</kbd> câmera</span>
         </div>
-        
-        <div class="mode-buttons">
-            <button class="btn-mode active" id="btn-mode-ackermann" data-mode="ackermann">
-                <span class="btn-icon">🔄</span>
-                <div>
-                    <b>Ackermann Duplo</b>
-                    <small>Curva Fechada (Contragiro Traseiro)</small>
-                </div>
-            </button>
-            <button class="btn-mode" id="btn-mode-crab" data-mode="crab">
-                <span class="btn-icon">🦀</span>
-                <div>
-                    <b>Modo Caranguejo</b>
-                    <small>Translação Diagonal (4 Rodas Paralelas)</small>
-                </div>
-            </button>
-            <button class="btn-mode" id="btn-mode-spin" data-mode="spin">
-                <span class="btn-icon">🔁</span>
-                <div>
-                    <b>Giro no Próprio Eixo</b>
-                    <small>Raio Zero (360° Tangencial)</small>
-                </div>
-            </button>
-            <button class="btn-mode" id="btn-mode-stair" data-mode="stair">
-                <span class="btn-icon">🪜</span>
-                <div>
-                    <b>Modo Escada (Stairs)</b>
-                    <small>Eixos Travados e Tração Síncrona</small>
-                </div>
-            </button>
-        </div>
-
-        <div class="panel-section-title" style="margin-top: 15px;">
-            <span class="icon">🎥</span> Câmeras & Visualização
-        </div>
-        <div class="cam-buttons">
-            <button class="btn-cam active" id="cam-orbit">Órbita Livre</button>
-            <button class="btn-cam" id="cam-fpv">Piloto FPV</button>
-            <button class="btn-cam" id="cam-top">Topo (X-Ray)</button>
-            <button class="btn-cam" id="cam-side">Lateral</button>
-        </div>
-
-        <div class="panel-section-title" style="margin-top: 15px;">
-            <span class="icon">⚙️</span> Ações Mecânicas & Pista
-        </div>
-        <div class="action-buttons">
-            <button class="btn-action" id="btn-test-stairs">🪜 Testar Subida de Escada</button>
-            <button class="btn-action" id="btn-toggle-box">📦 Abrir/Fechar Tampa Caixa</button>
-            <button class="btn-action" id="btn-toggle-explode">💥 Vista Explodida Modular</button>
-            <button class="btn-action btn-danger" id="btn-estop">🛑 Parada Emergência (E-Stop)</button>
-        </div>
-    </aside>
-
-    <!-- Painel Inferior de Instruções e D-PAD -->
-    <footer class="hud-footer glass-panel">
-        <div class="controls-hint">
-            <span><kbd>W</kbd> / <kbd>▲</kbd> Avançar</span>
-            <span><kbd>S</kbd> / <kbd>▼</kbd> Ré</span>
-            <span><kbd>A</kbd> / <kbd>◄</kbd> Esterçar Esq.</span>
-            <span><kbd>D</kbd> / <kbd>►</kbd> Esterçar Dir.</span>
-            <span><kbd>Espaço</kbd> Freio</span>
-            <span><kbd>Arrastar Mouse</kbd> Girar Câmera</span>
-        </div>
-        <div class="dpad-container">
-            <button class="dpad-btn up" id="dpad-up">▲</button>
-            <div class="dpad-row">
-                <button class="dpad-btn left" id="dpad-left">◄</button>
-                <button class="dpad-btn stop" id="dpad-stop">■</button>
-                <button class="dpad-btn right" id="dpad-right">►</button>
+        <div class="dpad">
+            <button class="dbtn" id="dpad-up">▲</button>
+            <div class="dlinha">
+                <button class="dbtn" id="dpad-left">◄</button>
+                <button class="dbtn" id="dpad-right">►</button>
             </div>
-            <button class="dpad-btn down" id="dpad-down">▼</button>
+            <button class="dbtn" id="dpad-down">▼</button>
         </div>
     </footer>
 
-    <!-- Script Principal -->
     <script type="module" src="app.js"></script>
 </body>
 </html>

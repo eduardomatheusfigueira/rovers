@@ -1,0 +1,294 @@
+# =============================================================================
+#  PARÂMETROS MESTRES DO PROJETO ROVER FRUGAL 4WD/4WS
+#  Fonte única de verdade (Single Source of Truth) do projeto.
+#
+#  Este arquivo é consumido por:
+#    - simulador_python/config.py        (simulador físico e ferramentas de análise)
+#    - ferramentas/gerar_parametros_js.py (gera prototipo_3d/parametros.js)
+#    - ferramentas/gerar_documentacao.py  (gera 00_Especificacao_Mestre/00_Parametros_Mestres.md)
+#
+#  REGRA DE OURO: nenhum número de engenharia deve ser escrito diretamente em
+#  código ou em documento. Todo valor dimensional, de massa, elétrico ou de
+#  desempenho vive aqui e é referenciado pela sua chave.
+#
+#  Unidades: SI estrito (m, kg, s, N, W, V, A, rad) salvo sufixo explícito.
+# =============================================================================
+
+meta:
+  projeto: "Rover Frugal 4WD/4WS — UGV de Inovação Frugal para Logística Predial"
+  revisao: "R2"
+  data_revisao: "2026-08-22"
+  variante_ativa: "v2_sincrona"
+  descricao_revisao: >
+    R2 consolida a auditoria técnica (00_Especificacao_Mestre/02_Auditoria_Tecnica.md),
+    corrige o dimensionamento da roda pela condição de marcha síncrona de raios,
+    unifica massas, raios e contagem de raios entre documentos e código, e
+    corrige a classificação cinemática de Siegwart (δm=1, δs=2, δM=3).
+
+# -----------------------------------------------------------------------------
+# 1. AMBIENTE OPERACIONAL DE REFERÊNCIA
+# -----------------------------------------------------------------------------
+ambiente:
+  # Escada civil de referência (ABNT NBR 9050 / Lei de Blondel 2E + P = 0,63–0,65 m)
+  escada:
+    espelho_E: 0.170          # altura do degrau (riser) [m]
+    piso_P: 0.300             # profundidade do degrau (tread) [m]
+    largura: 1.200            # largura útil do lance [m]
+    num_degraus_lance: 8      # degraus por lance típico do campus
+    # Derivados (calculados em código, aqui apenas para conferência humana):
+    #   blondel = 2E + P = 0.640 m          -> conforme NBR 9050
+    #   passo_D = hypot(E, P) = 0.3448 m    -> distância nariz-a-nariz
+    #   inclinacao = atan(E/P) = 29.54 deg
+  meio_fio:
+    altura_tipica: 0.120
+    altura_maxima: 0.150
+  piso:
+    mu_borracha_concreto: 0.85      # atrito estático borracha vulcanizada/concreto
+    mu_borracha_concreto_molhado: 0.55
+    mu_borracha_marmore_polido: 0.40  # pior caso: hall de entrada encerado
+    crr_asfalto: 0.030              # resistência ao rolamento em asfalto/calçada
+    crr_grama: 0.110
+  porta_estreita: 0.800             # vão livre mínimo de porta a transpor [m]
+  corredor_estreito: 0.900
+
+# -----------------------------------------------------------------------------
+# 2. GEOMETRIA E MASSAS DO VEÍCULO (variante ativa)
+# -----------------------------------------------------------------------------
+veiculo:
+  # Base de rodas dimensionada como múltiplo inteiro do passo do degrau
+  # (L = k * D) para travar a fase entre eixo dianteiro e traseiro na escada.
+  entre_eixos_L: 0.690        # 2 x passo do degrau (2 x 0.3448) [m]
+  bitola_W: 0.600             # bitola transversal [m]
+  fator_fase_escada_k: 2      # L = k * D_passo
+  # Alturas coerentes com a caixa organizadora apoiada no vão livre:
+  #   fundo da caixa (ventre) a 190 mm; caixa de ~250 mm de altura interna;
+  #   notebook e bateria deitados no fundo sobre espuma -> CG da carga a 225 mm;
+  #   braços, mangas, motores e rodas em torno do eixo (210 mm) e da braçadeira
+  #   superior (357 mm) -> CG do conjunto seco a 280 mm.
+  altura_cg_chassi: 0.280
+  altura_cg_carga: 0.225
+  altura_caixa: 0.250
+  altura_fixacao_pendular: 0.357   # terço superior da caixa: 190 + 2/3 x 250
+  # Folga do ventre: dois critérios, vale o maior.
+  #  (a) linha dos narizes — o simulador mede 79 mm de espaço abaixo do eixo no
+  #      pior caso: ventre >= 210 - 79 + 20 = 151 mm;
+  #  (b) aproximação frontal do primeiro degrau: ventre >= espelho + margem
+  #      = 170 + 20 = 190 mm.  <- critério dominante
+  vao_livre_ventre: 0.190     # menor cota do ventre (fundo da caixa) ao piso [m]
+  folga_ventre_medida: 0.079  # pior caso medido por simulador_python.geometria_escada [m]
+  braco_pendular: 0.160       # ponto de fixação (1/3 superior) ao CG da carga [m]
+  amortecimento_pendular: 4.5
+
+massas:
+  chassi_pvc: 1.30
+  rodas_conjunto: 1.80        # 4 rodas Φ420 em PETG + cubos + C-STS + aros elásticos
+  tracao_conjunto: 0.90       # 4 motorredutores + acopladores
+  estercamento_conjunto: 0.45 # 4 servos + mangas
+  eletronica_potencia: 0.55
+  bateria: 0.62
+  caixa_organizadora: 0.60
+  carga_util_nominal: 2.50    # notebook corporativo + fonte
+  carga_util_maxima: 3.00
+  # massa_total é calculada em código pela soma + carga_util_nominal
+
+# -----------------------------------------------------------------------------
+# 3. RODA DE RAIOS CURVOS (síntese em 02_Engenharia_e_Arquitetura/06)
+# -----------------------------------------------------------------------------
+roda:
+  # Dimensionamento por ROBUSTEZ DE FASE sobre toda a família de escadas de
+  # Blondel (2E+P = 64 cm, E de 160 a 180 mm). Φ420 é o único diâmetro com 100%
+  # de sucesso em todas as fases de aproximação e em todas as escadas da família
+  # — subdimensionar trava na face do espelho, SOBREdimensionar faz a roda
+  # ultrapassar o nariz e cair no degrau. Ver 02_Engenharia_e_Arquitetura/06 §3.
+  num_raios_N: 3
+  raio_max: 0.210             # ponta do raio curvo r_max [m]  -> Φ 420 mm
+  raio_cubo: 0.070            # raio externo do cubo C-STS r_min [m]
+  raio_curvatura_arco: 0.189  # raio do arco do perfil espiral [m]
+  largura_raio: 0.024         # espessura axial do raio impresso [m]
+  espessura_raiz: 0.010       # espessura do raio na raiz [m]
+  espessura_ponta: 0.007      # espessura do raio na ponta [m]
+  varredura_rad: 1.35         # varredura angular do arco do raio, da raiz à ponta [rad]
+  expoente_perfil: 0.85       # expoente do perfil espiral theta(u) = varredura * u^expoente
+  sentido_curvatura: 1        # +1: raio curva no sentido do rolamento (ponta avançada)
+  pastilha_borracha:
+    espessura: 0.008
+    mu: 0.85
+  material: "PETG"
+  densidade_material: 1270    # kg/m³ (PETG)
+
+# Aro elástico externo — item CRÍTICO, não opcional.
+# Sem aro, a roda de 3 raios é uma roda sem aro (rimless wheel): a cota do cubo
+# oscila r_max*(1 - cos(pi/N)) = 110 mm por transferência de raio EM PISO PLANO,
+# o que inviabiliza o transporte de carga sensível. O aro fecha a superfície de
+# rolamento no plano e colapsa localmente na quina do degrau, liberando a ponta
+# do raio para engatar. Ver 02_Engenharia_e_Arquitetura/06, seção 6.
+aro_elastico:
+  obrigatorio: true
+  tipo: "câmara de ar de bicicleta 20\" (frugal) ou anel TPU 95A impresso"
+  rigidez_radial: 3500.0      # N/m — carrega 24 N com ~7 mm de deflexão no plano
+  curso_colapso: 0.025        # m — deflexão até expor a ponta do raio
+  massa_por_roda: 0.090
+  forca_colapso_local: 90.0   # N — limiar de engate do raio na quina
+
+# -----------------------------------------------------------------------------
+# 4. SUSPENSÃO — DOIS ESTÁGIOS
+# -----------------------------------------------------------------------------
+csts:                          # Estágio 1: torsional no cubo (Jeong & Kim, 2025)
+  # ATENÇÃO — ESCALA. Jeong & Kim publicam kt ~ 0,55 N·m/rad para um robô de
+  # bancada. Com r_max = 0,22 m e torque de pico de 4,81 N·m, essa rigidez daria
+  # 8,7 rad (500°) de deflexão: a mola enrolaria por completo. A geometria
+  # abaixo é o resultado de `simulador_python.csts.dimensionar_csts`, que
+  # transporta o conceito por semelhança dimensional a partir do torque de
+  # projeto e da deflexão admissível. Ver 02_Engenharia_e_Arquitetura/06 §5.
+  modulo_young_pla: 3.5e+9
+  modulo_young_petg: 2.1e+9
+  material: "PETG"
+  largura_b: 0.030             # largura axial da lâmina espiral [m]
+  espessura_t: 0.00971         # espessura da lâmina [m]
+  comprimento_desenrolado_L: 0.386   # comprimento desenrolado (1,5 voltas) [m]
+  raio_interno_espiral: 0.020
+  raio_externo_espiral: 0.062
+  torque_projeto: 5.40         # N·m — envelope do pico quase-estático em toda a família de escadas
+  deflexao_projeto_deg: 30.0
+  kt_projeto: 10.31            # N·m/rad — rigidez efetiva de projeto
+  kt_empirico: 0.547           # N·m/rad — REFERÊNCIA do artigo (t=5 mm, escala do artigo)
+  fator_correcao_empirico: 0.828  # kt_emp/kt_teo do artigo: perda de rigidez do FDM
+  amortecimento_ct: 0.080      # N·m·s/rad
+  deflexao_maxima_deg: 35.0
+  inercia_roda: 0.0125         # kg·m² (roda Φ440 PETG + aro, estimada em CAD)
+
+suspensao_elastica:            # Estágio 2: linear nas mangas (elásticos de escritório)
+  # CURSO DIMENSIONADO POR ENERGIA, não por estética de montagem.
+  # A marcha de 3 raios impõe quedas de cubo de até 94 mm na escada; com os
+  # 35 mm originais a suspensão bate no batente a cada transferência de raio e
+  # a carga recebe 4,2 g (limite: 2,0 g). A varredura curso x rigidez em
+  # `simulador_python.benchmark` mostra que 90 mm com 1000 N/m entrega 1,7 g.
+  elasticos_por_perna: 8
+  rigidez_por_elastico: 125.0  # N/m (elástico nº 18 duplado, a medir em bancada)
+  # rigidez_total_por_roda = elasticos_por_perna * rigidez_por_elastico = 1000 N/m
+  amortecimento_por_roda: 25.0 # N·s/m (histerese do feixe)
+  curso_maximo: 0.090          # m — requisito derivado da energia de queda
+  afundamento_estatico: 0.022  # m — 24% do curso (boa prática veicular)
+  pre_tensao_relativa: 0.20
+  batente_deg: 25.0
+
+# -----------------------------------------------------------------------------
+# 5. TRAÇÃO, ESTERÇAMENTO E POTÊNCIA
+# -----------------------------------------------------------------------------
+powertrain:
+  # Motor DC escovado + redutor planetário metálico (classe JGB37-550 / 37GB-555)
+  motor:
+    tensao_nominal: 12.0
+    kv_rpm_por_volt: 1000.0    # rotação a vazio do rotor por volt
+    resistencia_armadura: 1.10 # ohm
+    corrente_vazio: 0.35       # A
+    torque_stall_rotor: 0.0265 # N·m no eixo do rotor (antes da redução)
+    inercia_rotor: 1.2e-6
+  reducao: 172.0               # relação do redutor planetário (i) — valor de catálogo
+  eficiencia_reducao: 0.72     # rendimento mecânico do trem planetário
+  num_motores: 4
+  limite_corrente_driver: 20.0 # A por canal (BTS7960 com dissipador)
+  # Derivados em código: torque_stall_saida, rpm_vazio_saida, curva torque-velocidade
+
+estercamento:
+  torque_servo: 2.45           # N·m (25 kgf·cm)
+  velocidade_servo: 5.24       # rad/s (0.12 s / 60°)
+  angulo_maximo_deg: 55.0   # limitado pela manga 4WS; 49° é o mínimo para giro no eixo
+  taxa_maxima_deg_s: 120.0
+  tempo_reconfiguracao_modo: 0.75  # s — δs=2 exige parar para trocar de modo
+
+energia:
+  quimica: "LiFePO4"
+  celulas_serie: 4
+  celulas_paralelo: 2
+  capacidade_celula_ah: 3.0
+  tensao_nominal_celula: 3.2
+  tensao_cheia_celula: 3.65
+  tensao_corte_celula: 2.80
+  resistencia_interna_celula: 0.025   # ohm
+  reserva_operacional: 0.20           # 20% de reserva não utilizável
+  consumo_eletronica_w: 6.5           # MCU + rádio + FPV + servos em repouso
+
+# -----------------------------------------------------------------------------
+# 6. CINEMÁTICA E CONTROLE
+# -----------------------------------------------------------------------------
+cinematica:
+  # Classificação de Siegwart & Nourbakhsh (2004), Tabela 3.1 — categoria "Two-Steer"
+  grau_mobilidade_dm: 1
+  grau_dirigibilidade_ds: 2
+  grau_manobrabilidade_dM: 3
+  holonomico: false            # δM = 3 com δs = 2: NÃO é holonômico instantâneo
+  velocidade_maxima: 1.20
+  velocidade_escada: 0.25
+  aceleracao_maxima: 0.50
+
+controle:
+  frequencia_malha_hz: 200
+  frequencia_telemetria_hz: 20
+  timeout_failsafe_ms: 300
+  # O limiar de arfagem PRECISA depender do modo: numa escada de 29,5° a
+  # oscilação da marcha leva o chassi a ~43° de arfagem em operação normal. Um
+  # limiar único de 40° dispararia a proteção anti-tombamento no meio da subida.
+  # Tombamento estático longitudinal: 58,1°.
+  pitch_critico_plano_deg: 35.0
+  pitch_critico_escada_deg: 52.0
+  roll_critico_deg: 30.0
+  limite_choque_carga_g: 2.0
+  arfagem_esperada_escada_deg: 43.0
+
+# -----------------------------------------------------------------------------
+# 7. REQUISITOS DE DESEMPENHO (KPI) — rastreados em 00_Especificacao_Mestre/01
+# -----------------------------------------------------------------------------
+kpi:
+  carga_util_kg: {meta: 3.00, minimo: 2.50}
+  degrau_transponivel_m: {meta: 0.170, minimo: 0.150}
+  velocidade_plano_ms: {meta: 1.00, minimo: 0.50}
+  choque_carga_g: {meta: 1.50, maximo: 2.50}
+  autonomia_min: {meta: 45.0, minimo: 30.0}
+  alcance_link_m: {meta: 300.0, minimo: 150.0}
+  troca_peca_min: {meta: 10.0, maximo: 15.0}
+  custo_material_usd: {meta: 1000.0, maximo: 1000.0}
+  margem_torque: {meta: 2.00, minimo: 1.50}
+  margem_tombamento_deg: {meta: 15.0, minimo: 10.0}
+
+# -----------------------------------------------------------------------------
+# 8. VARIANTES DE PROJETO (para estudo comparativo e regressão histórica)
+# -----------------------------------------------------------------------------
+variantes:
+  v1_legado:
+    descricao: >
+      Geometria original do repositório (R1). Preservada para comparação: a roda
+      Φ300 mm com 3 raios NÃO satisfaz a condição de marcha síncrona no degrau
+      de 170x300 mm (alcance nariz-a-nariz de 259,8 mm contra 344,8 mm exigidos).
+      Ver 00_Especificacao_Mestre/02_Auditoria_Tecnica.md, achado A-01.
+    veiculo:
+      entre_eixos_L: 1.360
+      bitola_W: 1.440
+      vao_livre_ventre: 0.100
+    roda:
+      raio_max: 0.150
+      raio_cubo: 0.045
+      raio_curvatura_arco: 0.135
+  v2_sincrona:
+    descricao: >
+      Variante ativa (R2). Roda Φ400 mm com 3 raios satisfaz a condição
+      D = 2·r_max·sin(π/N) para o degrau de referência, e o entre-eixos é
+      travado em 2 passos de degrau para sincronizar os eixos na escada.
+    # sem overrides: usa os blocos principais acima
+  v3_degrau_reduzido:
+    descricao: >
+      Alternativa de baixo custo: mantém a roda Φ300 mm original e reduz o
+      requisito para degraus de 150x230 mm (escadas internas/rampas de
+      acessibilidade), onde a marcha síncrona é satisfeita.
+    ambiente:
+      escada:
+        espelho_E: 0.150
+        piso_P: 0.212
+    roda:
+      raio_max: 0.150
+      raio_cubo: 0.045
+      raio_curvatura_arco: 0.135
+    veiculo:
+      entre_eixos_L: 0.520
+      bitola_W: 0.520
+      vao_livre_ventre: 0.170

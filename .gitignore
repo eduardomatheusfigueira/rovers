@@ -18,3 +18,10 @@ Thumbs.db
 Desktop.ini
 $RECYCLE.BIN/
 .DS_Store
+
+# Saídas geradas pelo simulador (reproduzíveis com --benchmark/--relatorio)
+resultados/
+*.png.tmp
+
+# Ferramentas de teste
+node_modules/

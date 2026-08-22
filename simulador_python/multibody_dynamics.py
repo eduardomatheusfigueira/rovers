@@ -1,237 +1,331 @@
 """
-Simulador Dinâmico 6-DOF e Multicorpo do Rover Frugal 4WD/4WS
-Totalmente integrado à Cinemática de Blondel e Física de Raios Curvos com C-STS.
+Dinâmica multicorpo do rover no plano sagital.
+
+MUDANÇA DE MÉTODO EM RELAÇÃO À VERSÃO ANTERIOR
+----------------------------------------------
+O simulador antigo produzia a "redução de choque do C-STS" multiplicando o pico
+por 0,45 quando a suspensão estava ligada e por 1,00 quando desligada. O
+resultado do benchmark era, portanto, uma consequência aritmética do próprio
+fator — não uma previsão física.
+
+Aqui a cadeia causal é fechada de ponta a ponta:
+
+  geometria da roda + perfil do degrau
+        -> `geometria_escada.SimuladorMarcha` devolve a trajetória REAL do cubo
+        -> essa trajetória vira a EXCITAÇÃO DE BASE y(x) de cada eixo
+        -> modelo de meio-veículo (bounce + arfagem + massas não suspensas)
+           filtra a excitação através do aro elástico e dos elásticos
+        -> pêndulo da caixa filtra o que chega ao notebook
+        -> a aceleração da carga é INTEGRADA, não postulada.
+
+Ligar ou desligar um estágio de suspensão muda apenas a rigidez correspondente;
+o ganho aparece (ou não) por conta própria.
 """
 
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from typing import Callable, Dict, List, Optional
+
 import numpy as np
-from .config import (
-    WHEEL_POSITIONS, WHEELBASE, TRACK_WIDTH, MASS_TOTAL,
-    PENDULUM_ARM, PENDULUM_DAMPING, H_CG_TOTAL, R_WHEEL_MAX, R_WHEEL_MIN,
-    STAIR_RISER, STAIR_TREAD, BLONDEL_VALUE, GRAVITY
-)
-from .kinematics import Kinematics4WS
-from .terramechanics import TerramechanicsWong
-from .spoke_contact_physics import PhysicalCurvedSpokeWheel
 
-class RoverMultibodySimulator:
-    def __init__(self, with_csts: bool = True):
-        self.with_csts = with_csts
-        self.kinematics = Kinematics4WS()
-        self.terramechanics = TerramechanicsWong()
+from .config import P as PARAMS
+from .csts import DinamicaCSTS, EspiralCSTS, dimensionar_csts
+from .geometria_escada import (PerfilEscada, PerfilMeioFio, PerfilPlano,
+                               RodaRaiosCurvos, SimuladorMarcha)
+from .terramechanics import TerramecanicaWong
 
-        # 4 Rodas Físicas de 3 Raios Curvos
-        self.wheels = {
-            'FL': PhysicalCurvedSpokeWheel(with_csts=with_csts),
-            'FR': PhysicalCurvedSpokeWheel(with_csts=with_csts),
-            'RL': PhysicalCurvedSpokeWheel(with_csts=with_csts),
-            'RR': PhysicalCurvedSpokeWheel(with_csts=with_csts)
-        }
+G = 9.80665
 
-        # Estado do Chassi (Coordenadas Mundiais)
-        # Z: Avanço (Frente = -Z, Ré = +Z)
-        # X: Lateral (Direita = +X, Esquerda = -X)
-        # Y: Altura (Solo plano = -0.15 m)
-        self.x = 0.0
-        self.y = 0.0
-        self.z = 0.8
-        self.vx = 0.0
-        self.vz = 0.0
-        self.speed = 0.0
 
-        self.yaw = 0.0
-        self.pitch = 0.0
-        self.roll = 0.0
+# =============================================================================
+# 1. EXCITAÇÃO DE BASE A PARTIR DA MARCHA REAL
+# =============================================================================
+@dataclass
+class PerfilExcitacao:
+    """Cota do cubo em função do avanço, y(x), extraída da marcha geométrica."""
 
-        # Pêndulo da Caixa Organizadora
-        self.pendulum_pitch = 0.0
-        self.pendulum_velocity = 0.0
+    x: np.ndarray
+    y: np.ndarray
+    sucesso: bool
+    motivo: str
+    queda_maxima: float
+    torque_pico: float
 
-        # Estados das Rodas
-        self.axle_positions = {}
-        self.wheel_heights = {'FL': 0.0, 'FR': 0.0, 'RL': 0.0, 'RR': 0.0}
-        self.steer_angles = {'FL': 0.0, 'FR': 0.0, 'RL': 0.0, 'RR': 0.0}
-        self.normal_forces = {'FL': 18.5, 'FR': 18.5, 'RL': 18.5, 'RR': 18.5}
-        self.contact_states = {'FL': True, 'FR': True, 'RL': True, 'RR': True}
+    def __call__(self, xq: float | np.ndarray):
+        return np.interp(xq, self.x, self.y, left=self.y[0], right=self.y[-1])
 
-        # Configuração da Escada de Blondel
-        self.stair_start_z = -2.0
-        self.num_steps = 3
+    @property
+    def ripple(self) -> float:
+        a, b = np.polyfit(self.x, self.y, 1)
+        r = self.y - (a * self.x + b)
+        return float(r.max() - r.min())
 
-        self.time = 0.0
-        self.history = {
-            'time': [], 'x': [], 'y': [], 'z': [], 'speed': [],
-            'pitch': [], 'roll': [], 'yaw': [], 'pendulum_pitch': [],
-            'fz_fl': [], 'fz_fr': [], 'fz_rl': [], 'fz_rr': [],
-            'wheel_angle_fl': [], 'csts_deflection_fl': [],
-            'stored_energy_total': [], 'deceleration_spike_max': []
-        }
 
-    def reset(self, x: float = 0.0, z: float = 0.8, heading: float = 0.0):
-        self.x = x
-        self.z = z
-        self.y = 0.0
-        self.vx = 0.0
-        self.vz = 0.0
-        self.speed = 0.0
-        self.yaw = heading
-        self.pitch = 0.0
-        self.roll = 0.0
-        self.pendulum_pitch = 0.0
-        self.pendulum_velocity = 0.0
-        self.time = 0.0
-        for w in self.wheels.values():
-            w.theta_motor = 0.0
-            w.theta_wheel = 0.0
-            w.omega_motor = 0.0
-            w.omega_wheel = 0.0
-            w.torsional_deflection = 0.0
+def gerar_excitacao(terreno=None, roda: Optional[RodaRaiosCurvos] = None,
+                    com_aro: bool = True, x_inicial: float = -0.8,
+                    degraus_alvo: Optional[int] = 4) -> PerfilExcitacao:
+    """Roda a marcha geométrica e devolve y(x) do cubo.
 
-    def get_terrain_height_at(self, z: float):
-        """
-        Retorna a cota Y da superfície da Escada de Blondel no ponto Z.
-        Solo base: Y = -0.15 m
-        Degrau 1: Y = -0.15 + 0.17 = +0.02 m  (Z em [-2.3, -2.0])
-        Degrau 2: Y = -0.15 + 0.34 = +0.19 m  (Z em [-2.6, -2.3])
-        Degrau 3: Y = -0.15 + 0.51 = +0.36 m  (Z em [-2.9, -2.6])
-        Patamar : Y = +0.36 m                 (Z <= -2.9)
-        """
-        if z <= self.stair_start_z - 3 * STAIR_TREAD:
-            return -0.15 + 3 * STAIR_RISER # Patamar
-        elif z <= self.stair_start_z - 2 * STAIR_TREAD:
-            return -0.15 + 3 * STAIR_RISER # Degrau 3
-        elif z <= self.stair_start_z - 1 * STAIR_TREAD:
-            return -0.15 + 2 * STAIR_RISER # Degrau 2
-        elif z <= self.stair_start_z:
-            return -0.15 + 1 * STAIR_RISER # Degrau 1
-        return -0.15 # Solo Plano
+    Com `com_aro=True` o aro elástico fecha a superfície de rolamento: em trecho
+    plano o cubo anda na cota constante r_max (é uma roda convencional). Sem aro,
+    vale a trajetória crua da roda de raios — que é o que expõe o ripple de
+    r_max·(1 − cos(π/N)).
+    """
+    roda = roda or RodaRaiosCurvos()
+    terreno = terreno if terreno is not None else PerfilEscada(num_degraus=6)
+    sim = SimuladorMarcha(roda, terreno)
+    res = sim.simular(x_inicial=x_inicial, degraus_alvo=degraus_alvo)
 
-    def step(self, throttle_cmd: float, steer_cmd: float, mode: str = 'ackermann', dt: float = 0.01):
-        """
-        Executa um passo temporal completo e suave da física veicular.
-        """
-        self.time += dt
+    x = res.trajetoria_cubo[:, 0]
+    y = res.trajetoria_cubo[:, 1]
+    ordem = np.argsort(x)
+    x, y = x[ordem], y[ordem]
+    x, indices = np.unique(x, return_index=True)
+    y = y[indices]
 
-        # 1. Cinemática e Controle de Velocidade
-        target_speed = throttle_cmd * 1.0 # m/s
-        target_steer = steer_cmd * np.radians(40.0)
+    if com_aro:
+        # Modelo do aro elástico: em superfície contínua ele sustenta o veículo a
+        # r_max menos a deflexão estática (F/k). A trajetória dos raios só
+        # prevalece onde ela é MAIOR que esse piso — isto é, quando a ponta do
+        # raio está apoiada numa quina e o aro colapsou localmente.
+        carga_roda = PARAMS.veiculo.peso_total_N / 4.0
+        deflexao_estatica = min(carga_roda / PARAMS.aro_elastico.rigidez_radial,
+                                PARAMS.aro_elastico.curso_colapso)
+        piso = np.asarray(terreno.altura(x)) + roda.raio_max - deflexao_estatica
+        y = np.maximum(y, piso)
 
-        if mode == 'spin':
-            omega_cmd = steer_cmd * 1.4
-            vx_cmd, vz_cmd = 0.0, 0.0
-        elif mode == 'crab':
-            omega_cmd = 0.0
-            vx_cmd = np.sin(target_steer) * target_speed
-            vz_cmd = np.cos(target_steer) * target_speed
-        elif mode == 'stair':
-            omega_cmd = 0.0
-            vx_cmd = 0.0
-            vz_cmd = target_speed * 0.70 # Avanço síncrono em escada
-        else: # 'ackermann'
-            omega_cmd = (target_speed / (WHEELBASE / 2.0)) * np.sin(target_steer)
-            vx_cmd = 0.0
-            vz_cmd = target_speed
+    return PerfilExcitacao(x=x, y=y, sucesso=res.sucesso, motivo=res.motivo,
+                           queda_maxima=res.queda_maxima, torque_pico=res.torque_pico)
 
-        steer_angles, wheel_speeds, _ = self.kinematics.compute_inverse_kinematics(
-            vx_cmd, vz_cmd, omega_cmd, mode=mode
+
+# =============================================================================
+# 2. MODELO DE MEIO-VEÍCULO COM CARGA PENDULAR
+# =============================================================================
+@dataclass
+class ConfiguracaoSuspensao:
+    com_csts: bool = True
+    com_elasticos: bool = True
+    com_aro: bool = True
+    rigidez_rigida: float = 1.0e5      # N/m usada quando um estágio é desligado
+
+    def k_elasticos(self) -> float:
+        return (PARAMS.suspensao_elastica.rigidez_por_roda if self.com_elasticos
+                else self.rigidez_rigida)
+
+    def c_elasticos(self) -> float:
+        return (PARAMS.suspensao_elastica.amortecimento_por_roda if self.com_elasticos
+                else 5.0)
+
+    def k_aro(self) -> float:
+        return PARAMS.aro_elastico.rigidez_radial if self.com_aro else 5.0e4
+
+    def rotulo(self) -> str:
+        partes = []
+        partes.append("aro" if self.com_aro else "sem aro")
+        partes.append("elásticos" if self.com_elasticos else "sem elásticos")
+        partes.append("C-STS" if self.com_csts else "cubo rígido")
+        return " + ".join(partes)
+
+
+class SimuladorSagital:
+    """Meio-veículo: bounce, arfagem, 2 massas não suspensas e carga pendular."""
+
+    def __init__(self, config: Optional[ConfiguracaoSuspensao] = None,
+                 espiral: Optional[EspiralCSTS] = None):
+        self.cfg = config or ConfiguracaoSuspensao()
+        self.espiral = espiral or dimensionar_csts(
+            torque_projeto=PARAMS.csts.torque_projeto,
+            deflexao_projeto_deg=PARAMS.csts.deflexao_projeto_deg,
+            material=PARAMS.csts.material,
+            raio_externo=PARAMS.csts.raio_externo_espiral,
         )
-        self.steer_angles = steer_angles
 
-        # 2. Integração Suave de Velocidade e Translação
-        accel_rate = 3.5
-        self.speed += (target_speed - self.speed) * min(1.0, dt * accel_rate)
-        self.yaw += omega_cmd * dt
+        self.m_carga = PARAMS.massas.carga_util_nominal
+        self.m_suspensa = PARAMS.massas.massa_seca - PARAMS.massas.rodas_conjunto - self.m_carga * 0
+        self.m_nao_suspensa = PARAMS.massas.rodas_conjunto / 2.0     # por eixo (2 rodas)
+        self.L = PARAMS.veiculo.entre_eixos_L
+        self.lf = self.lr = self.L / 2.0
+        self.inercia_arfagem = self.m_suspensa * (self.L ** 2) / 12.0 * 1.6
+        self.braco_pendulo = PARAMS.veiculo.braco_pendular
+        self.amort_pendulo = PARAMS.veiculo.amortecimento_pendular
 
-        if mode == 'crab':
-            crab_h = self.yaw + target_steer
-            self.x += -np.sin(crab_h) * self.speed * dt
-            self.z += -np.cos(crab_h) * self.speed * dt
-        elif mode == 'spin':
-            pass
-        else:
-            self.x += -np.sin(self.yaw) * self.speed * dt
-            self.z += -np.cos(self.yaw) * self.speed * dt
+        self.terramecanica = TerramecanicaWong()
+        self.csts = {lado: DinamicaCSTS(self.espiral, ativo=self.cfg.com_csts)
+                     for lado in ("dianteiro", "traseiro")}
+        self.reset()
 
-        # 3. Posições dos Eixos das Rodas no Espaço Longitudinal (Z)
-        cos_p = np.cos(self.pitch)
-        sin_p = np.sin(self.pitch)
-        cos_y = np.cos(self.yaw)
-        sin_y = np.sin(self.yaw)
+    # ------------------------------------------------------------------
+    def reset(self) -> None:
+        r = PARAMS.roda.raio_max
+        self.t = 0.0
+        self.x = 0.0
+        self.v = 0.0
+        self.z_s = r + PARAMS.veiculo.altura_cg_chassi
+        self.dz_s = 0.0
+        self.theta = 0.0
+        self.dtheta = 0.0
+        self.z_uf = r
+        self.dz_uf = 0.0
+        self.z_ur = r
+        self.dz_ur = 0.0
+        self.phi = 0.0
+        self.dphi = 0.0
+        self.hist: Dict[str, List[float]] = {
+            k: [] for k in ("t", "x", "v", "z_s", "theta", "z_uf", "z_ur", "phi",
+                            "a_carga_vert", "a_carga_long", "fz_f", "fz_r",
+                            "deflexao_csts", "energia_csts", "torque_roda")
+        }
 
-        # Dianteiras (FL e FR) em Z_front, Traseiras (RL e RR) em Z_rear
-        z_front_local = -WHEELBASE / 2.0
-        z_rear_local  =  WHEELBASE / 2.0
+    # ------------------------------------------------------------------
+    def passo(self, excitacao: PerfilExcitacao, velocidade_alvo: float, dt: float) -> None:
+        # --- longitudinal com complacência torsional -----------------------
+        self.v += (velocidade_alvo - self.v) * min(1.0, dt * 4.0)
+        self.x += self.v * dt
 
-        z_fl_world = self.z + z_front_local * cos_y * cos_p
-        z_fr_world = self.z + z_front_local * cos_y * cos_p
-        z_rl_world = self.z + z_rear_local  * cos_y * cos_p
-        z_rr_world = self.z + z_rear_local  * cos_y * cos_p
+        r = PARAMS.roda.raio_max
+        omega_motor = self.v / r
+        torque_resistente = excitacao.torque_pico * 0.0   # atualizado abaixo
+        # Torque resistente instantâneo: braço horizontal do contato (da marcha)
+        inclinacao_local = self._inclinacao_local(excitacao, self.x)
+        torque_resistente = (self.terramecanica.peso / 2.0) * r * np.sin(inclinacao_local)
+        t_transmitido = self.csts["dianteiro"].passo(omega_motor, torque_resistente, dt)
+        self.csts["traseiro"].passo(omega_motor, torque_resistente, dt)
 
-        wheel_z_map = {'FL': z_fl_world, 'FR': z_fr_world, 'RL': z_rl_world, 'RR': z_rr_world}
+        # Aceleração longitudinal da carga = variação da força trativa efetiva
+        a_long = (t_transmitido / r - torque_resistente / r) / max(PARAMS.massas.massa_total, 1e-6)
 
-        # 4. Atualização da Física de Rotação e Contato dos 3 Raios Curvos
-        total_energy = 0.0
-        max_decel_spike = 0.0
-        target_axle_y = {}
+        # --- excitação de base dos dois eixos ------------------------------
+        y_f = float(excitacao(self.x + self.lf))
+        y_r = float(excitacao(self.x - self.lr))
 
-        for w_id, wheel in self.wheels.items():
-            w_speed = wheel_speeds[w_id]
-            # Velocidade angular do motor: omega = v / r_eff
-            target_motor_omega = w_speed / max(0.05, wheel.effective_radius)
+        # --- forças do aro elástico (contato) ------------------------------
+        k_aro, k_sus, c_sus = self.cfg.k_aro(), self.cfg.k_elasticos(), self.cfg.c_elasticos()
+        f_contato_f = max(0.0, k_aro * (y_f - self.z_uf))
+        f_contato_r = max(0.0, k_aro * (y_r - self.z_ur))
 
-            # Atualiza torção C-STS
-            wheel.update_torsional_physics(target_motor_omega, dt)
-            total_energy += wheel.stored_energy
-            if wheel.deceleration_spike > max_decel_spike:
-                max_decel_spike = wheel.deceleration_spike
+        # --- forças da suspensão elástica ----------------------------------
+        z_s_f = self.z_s - self.lf * np.sin(self.theta) - PARAMS.veiculo.altura_cg_chassi
+        z_s_r = self.z_s + self.lr * np.sin(self.theta) - PARAMS.veiculo.altura_cg_chassi
+        dz_s_f = self.dz_s - self.lf * self.dtheta
+        dz_s_r = self.dz_s + self.lr * self.dtheta
 
-            # Determina a altura da superfície no ponto da roda
-            wz = wheel_z_map[w_id]
-            ground_y = self.get_terrain_height_at(wz)
+        curso = PARAMS.suspensao_elastica.curso_maximo
+        def forca_susp(z_u, z_sx, dz_u, dz_sx):
+            defl = z_u - z_sx
+            f = k_sus * defl + c_sus * (dz_u - dz_sx)
+            if abs(defl) > curso:              # batente mecânico de fim de curso
+                f += 2.0e4 * (abs(defl) - curso) * np.sign(defl)
+            return f
 
-            # A cota do eixo da roda é dada pelo terreno + raio efetivo instantâneo do raio ativo!
-            # Isso gera a suave ondulação cicloidal característica dos raios curvos
-            spoke_roll_height = wheel.effective_radius
-            target_axle_y[w_id] = ground_y + spoke_roll_height
-            self.wheel_heights[w_id] = target_axle_y[w_id]
+        f_sus_f = forca_susp(self.z_uf, z_s_f, self.dz_uf, dz_s_f)
+        f_sus_r = forca_susp(self.z_ur, z_s_r, self.dz_ur, dz_s_r)
 
-        # 5. Cinemática Multicorpo do Chassi
-        front_y = (target_axle_y['FL'] + target_axle_y['FR']) / 2.0
-        rear_y  = (target_axle_y['RL'] + target_axle_y['RR']) / 2.0
-        left_y  = (target_axle_y['FL'] + target_axle_y['RL']) / 2.0
-        right_y = (target_axle_y['FR'] + target_axle_y['RR']) / 2.0
+        # --- massas não suspensas -------------------------------------------
+        ddz_uf = (f_contato_f - f_sus_f) / self.m_nao_suspensa - G
+        ddz_ur = (f_contato_r - f_sus_r) / self.m_nao_suspensa - G
+        self.dz_uf += ddz_uf * dt
+        self.dz_ur += ddz_ur * dt
+        self.z_uf += self.dz_uf * dt
+        self.z_ur += self.dz_ur * dt
 
-        target_chassis_y = (front_y + rear_y) / 2.0
-        target_pitch = np.arctan2(front_y - rear_y, WHEELBASE)
-        target_roll  = np.arctan2(right_y - left_y, TRACK_WIDTH)
+        # --- massa suspensa (bounce + arfagem) ------------------------------
+        m_total_susp = self.m_suspensa + self.m_carga
+        ddz_s = (f_sus_f + f_sus_r) / m_total_susp - G
+        ddtheta = (f_sus_r * self.lr - f_sus_f * self.lf) / self.inercia_arfagem
+        self.dz_s += ddz_s * dt
+        self.z_s += self.dz_s * dt
+        self.dtheta += ddtheta * dt
+        self.theta += self.dtheta * dt
 
-        # Filtro passa-baixa suave para amortecimento da suspensão
-        self.y += (target_chassis_y - self.y) * min(1.0, dt * 10.0)
-        self.pitch += (target_pitch - self.pitch) * min(1.0, dt * 8.0)
-        self.roll += (target_roll - self.roll) * min(1.0, dt * 8.0)
+        # --- pêndulo da caixa organizadora ----------------------------------
+        ddphi = (-(G / self.braco_pendulo) * np.sin(self.phi - self.theta)
+                 - self.amort_pendulo * (self.dphi - self.dtheta)
+                 - a_long / self.braco_pendulo)
+        self.dphi += ddphi * dt
+        self.phi += self.dphi * dt
 
-        # 6. Balanço Pendular da Caixa Organizadora (Auto-Estabilização da Carga)
-        pendulum_accel = -(GRAVITY / PENDULUM_ARM) * np.sin(self.pendulum_pitch - self.pitch) - PENDULUM_DAMPING * self.pendulum_velocity
-        self.pendulum_velocity += pendulum_accel * dt
-        self.pendulum_pitch += self.pendulum_velocity * dt
+        # --- aceleração sentida pelo notebook -------------------------------
+        a_vert = ddz_s + self.braco_pendulo * ddphi * np.sin(self.phi)
+        a_long_carga = a_long + self.braco_pendulo * ddphi * np.cos(self.phi)
 
-        # 7. Forças Normais Dinâmicas (Wong, 2022)
-        self.normal_forces = self.terramechanics.calculate_normal_loads(self.pitch, self.roll)
+        self.t += dt
+        h = self.hist
+        h["t"].append(self.t); h["x"].append(self.x); h["v"].append(self.v)
+        h["z_s"].append(self.z_s); h["theta"].append(np.degrees(self.theta))
+        h["z_uf"].append(self.z_uf); h["z_ur"].append(self.z_ur)
+        h["phi"].append(np.degrees(self.phi))
+        h["a_carga_vert"].append(a_vert / G)
+        h["a_carga_long"].append(a_long_carga / G)
+        h["fz_f"].append(f_contato_f); h["fz_r"].append(f_contato_r)
+        h["deflexao_csts"].append(np.degrees(self.csts["dianteiro"].deflexao))
+        h["energia_csts"].append(self.csts["dianteiro"].energia)
+        h["torque_roda"].append(t_transmitido)
 
-        # 8. Gravação de Histórico
-        self.history['time'].append(self.time)
-        self.history['x'].append(self.x)
-        self.history['y'].append(self.y)
-        self.history['z'].append(self.z)
-        self.history['speed'].append(self.speed)
-        self.history['pitch'].append(np.degrees(self.pitch))
-        self.history['roll'].append(np.degrees(self.roll))
-        self.history['yaw'].append(np.degrees(self.yaw))
-        self.history['pendulum_pitch'].append(np.degrees(self.pendulum_pitch))
-        self.history['fz_fl'].append(self.normal_forces['FL'])
-        self.history['fz_fr'].append(self.normal_forces['FR'])
-        self.history['fz_rl'].append(self.normal_forces['RL'])
-        self.history['fz_rr'].append(self.normal_forces['RR'])
-        self.history['wheel_angle_fl'].append(np.degrees(self.wheels['FL'].theta_wheel))
-        self.history['csts_deflection_fl'].append(np.degrees(self.wheels['FL'].torsional_deflection))
-        self.history['stored_energy_total'].append(total_energy)
-        self.history['deceleration_spike_max'].append(max_decel_spike)
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _inclinacao_local(exc: PerfilExcitacao, x: float, janela: float = 0.15) -> float:
+        y1 = float(exc(x - janela / 2.0))
+        y2 = float(exc(x + janela / 2.0))
+        return float(np.arctan2(y2 - y1, janela))
+
+    def passo_estavel(self) -> float:
+        """Passo de integração pela frequência natural mais alta do sistema.
+
+        Euler semi-implícito é estável para ω·dt < 2; adota-se ω·dt <= 0,10 para
+        manter também a precisão. Sem isto, as configurações "sem suspensão"
+        (rigidez de 1e5 N/m) divergem e produzem números sem sentido físico.
+        """
+        k_max = max(self.cfg.k_aro(), self.cfg.k_elasticos())
+        m_min = min(self.m_nao_suspensa, self.m_suspensa + self.m_carga)
+        omega = np.sqrt(2.0 * k_max / m_min)
+        return float(min(5.0e-4, 0.10 / omega))
+
+    def simular(self, excitacao: PerfilExcitacao, velocidade: float,
+                distancia: float, dt: Optional[float] = None) -> Dict[str, np.ndarray]:
+        self.reset()
+        self.x = float(excitacao.x[0])
+        dt = self.passo_estavel() if dt is None else dt
+        passos = int(distancia / max(velocidade, 1e-3) / dt)
+        self.divergiu = False
+        for _ in range(passos):
+            self.passo(excitacao, velocidade, dt)
+            if not np.isfinite(self.z_s) or abs(self.theta) > np.pi or abs(self.z_s) > 5.0:
+                self.divergiu = True
+                break
+            if self.x > excitacao.x[-1]:
+                break
+        saida = {k: np.array(v) for k, v in self.hist.items()}
+        saida["_divergiu"] = np.array([self.divergiu])
+        saida["_dt"] = np.array([dt])
+        return saida
+
+
+# =============================================================================
+# 3. MÉTRICAS
+# =============================================================================
+def metricas(hist: Dict[str, np.ndarray]) -> Dict[str, float]:
+    """Métricas de conforto/integridade da carga a partir de uma corrida."""
+    if bool(hist.get("_divergiu", np.array([False]))[0]):
+        return {"pico_vertical_g": float("inf"), "rms_vertical_g": float("inf"),
+                "pico_longitudinal_g": float("inf"), "pico_arfagem_deg": float("inf"),
+                "energia_csts_max_j": 0.0, "deflexao_csts_max_deg": 0.0, "divergiu": True}
+    av, al = hist["a_carga_vert"], hist["a_carga_long"]
+    n = max(1, len(av) // 10)     # descarta o transiente inicial de assentamento
+    av, al = av[n:], al[n:]
+    if len(av) == 0:
+        return {"pico_vertical_g": 0.0, "rms_vertical_g": 0.0, "pico_longitudinal_g": 0.0,
+                "pico_arfagem_deg": 0.0, "energia_csts_max_j": 0.0, "deflexao_csts_max_deg": 0.0}
+    return {
+        "pico_vertical_g": float(np.max(np.abs(av))),
+        "rms_vertical_g": float(np.sqrt(np.mean(av ** 2))),
+        "pico_longitudinal_g": float(np.max(np.abs(al))),
+        "pico_arfagem_deg": float(np.max(np.abs(hist["theta"][n:]))),
+        "energia_csts_max_j": float(np.max(hist["energia_csts"][n:])),
+        "deflexao_csts_max_deg": float(np.max(np.abs(hist["deflexao_csts"][n:]))),
+        "divergiu": False,
+    }
+
+
+# Alias histórico
+RoverMultibodySimulator = SimuladorSagital

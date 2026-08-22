@@ -1,18 +1,26 @@
+// =============================================================================
+//  APLICAÇÃO — Gêmeo digital do Rover Frugal no percurso do Itaipu Parquetec
+// =============================================================================
+
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { Rover3DModel } from './rover_model.js';
+import { PARAMETROS, IDS_RODAS } from './parametros.js';
+import { FisicaRover } from './fisica.js';
+import { ModeloRover } from './rover_model.js';
+import { Terreno } from './terreno.js';
 
-// ==========================================
-// CONFIGURAÇÃO DO CENÁRIO E THREE.JS
-// ==========================================
+const RAD = 180 / Math.PI;
+
+// -----------------------------------------------------------------------------
+// Cena
+// -----------------------------------------------------------------------------
 const container = document.getElementById('canvas-container');
+const cena = new THREE.Scene();
+cena.background = new THREE.Color(0x0a0e16);
+cena.fog = new THREE.FogExp2(0x0a0e16, 0.018);
 
-const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x0b0f19);
-scene.fog = new THREE.FogExp2(0x0b0f19, 0.035);
-
-const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 100);
-camera.position.set(2.4, 1.8, 2.8);
+const camera = new THREE.PerspectiveCamera(52, window.innerWidth / window.innerHeight, 0.05, 300);
+camera.position.set(2.6, 2.0, 3.0);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
 renderer.setSize(window.innerWidth, window.innerHeight);
@@ -20,312 +28,384 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.2;
+renderer.toneMappingExposure = 1.15;
 container.appendChild(renderer.domElement);
 
-const controls = new OrbitControls(camera, renderer.domElement);
-controls.enableDamping = true;
-controls.dampingFactor = 0.05;
-controls.maxPolarAngle = Math.PI / 2 - 0.02;
-controls.minDistance = 0.8;
-controls.maxDistance = 15;
-controls.target.set(0, 0.2, 0);
+const controles = new OrbitControls(camera, renderer.domElement);
+controles.enableDamping = true;
+controles.dampingFactor = 0.06;
+controles.maxPolarAngle = Math.PI / 2 - 0.03;
+controles.minDistance = 0.9;
+controles.maxDistance = 30;
 
-// Luzes
-scene.add(new THREE.AmbientLight(0xffffff, 0.85));
-const dirLight = new THREE.DirectionalLight(0xfff7ed, 1.8);
-dirLight.position.set(5, 8, 5);
-dirLight.castShadow = true;
-dirLight.shadow.mapSize.width = 2048;
-dirLight.shadow.mapSize.height = 2048;
-scene.add(dirLight);
+cena.add(new THREE.AmbientLight(0xffffff, 0.7));
+const sol = new THREE.DirectionalLight(0xfff2e0, 2.0);
+sol.position.set(8, 14, 6);
+sol.castShadow = true;
+sol.shadow.mapSize.set(2048, 2048);
+sol.shadow.camera.left = -25; sol.shadow.camera.right = 25;
+sol.shadow.camera.top = 25; sol.shadow.camera.bottom = -25;
+sol.shadow.camera.far = 60;
+cena.add(sol);
+const luzFria = new THREE.DirectionalLight(0x2b6f86, 0.5);
+luzFria.position.set(-6, 4, -8);
+cena.add(luzFria);
 
-const cyanLight = new THREE.DirectionalLight(0x00e5ff, 0.6);
-cyanLight.position.set(-5, 3, -5);
-scene.add(cyanLight);
+const terreno = new Terreno();
+cena.add(terreno.grupo);
 
-// Chão Base (Y = -0.15)
-const floor = new THREE.Mesh(
-    new THREE.PlaneGeometry(50, 50),
-    new THREE.MeshStandardMaterial({ color: 0x131926, roughness: 0.4, metalness: 0.2 })
-);
-floor.rotation.x = -Math.PI / 2;
-floor.position.y = -0.15;
-floor.receiveShadow = true;
-scene.add(floor);
+let fisica = new FisicaRover();
+let modelo = new ModeloRover();
+cena.add(modelo.grupo);
 
-const grid = new THREE.GridHelper(50, 50, 0x00e5ff, 0x1e293b);
-grid.position.y = -0.149;
-scene.add(grid);
-
-// ==========================================
-// ESCADA CONFORME A LEI DE BLONDEL
-// Espelho E = 17 cm (0.17m) | Piso P = 30 cm (0.30m) -> 2E + P = 64 cm
-// ==========================================
-const stairGroup = new THREE.Group();
-const stepHeight = 0.17;
-const stepDepth = 0.30;
-const stairStart = -2.0;
-
-for (let i = 0; i < 3; i++) {
-    const step = new THREE.Mesh(
-        new THREE.BoxGeometry(2.0, stepHeight * (i + 1), stepDepth),
-        new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.65, metalness: 0.1 })
-    );
-    step.position.set(0, -0.15 + (stepHeight * (i + 1)) / 2, stairStart - (i * stepDepth) - (stepDepth / 2));
-    step.castShadow = true; step.receiveShadow = true;
-    stairGroup.add(step);
-}
-
-const plat = new THREE.Mesh(
-    new THREE.BoxGeometry(2.0, stepHeight * 3, 2.0),
-    new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.65, metalness: 0.1 })
-);
-plat.position.set(0, -0.15 + (stepHeight * 3) / 2, stairStart - (3 * stepDepth) - 1.0);
-plat.castShadow = true; plat.receiveShadow = true;
-stairGroup.add(plat);
-scene.add(stairGroup);
-
-function getTerrainHeight(x, z) {
-    if (Math.abs(x) < 1.0) {
-        if (z <= stairStart - 3 * stepDepth) {
-            return -0.15 + stepHeight * 3;
-        } else if (z <= stairStart - 2 * stepDepth) {
-            return -0.15 + stepHeight * 3;
-        } else if (z <= stairStart - 1 * stepDepth) {
-            return -0.15 + stepHeight * 2;
-        } else if (z <= stairStart) {
-            return -0.15 + stepHeight * 1;
-        }
-    }
-    return -0.15;
-}
-
-// Instanciar Modelo 3D
-const rover = new Rover3DModel();
-scene.add(rover.group);
-
-// ==========================================
-// ESTADO DO VEÍCULO E MOTOR DE FÍSICA
-// ==========================================
-const roverState = {
-    x: 0, z: 0, y: 0, heading: 0, pitch: 0, roll: 0,
-    speed: 0, maxSpeed: 1.5, accel: 2.5, decel: 3.5,
-    steerAngle: 0, maxSteerAngle: Math.PI / 4,
-    steerMode: 'ackermann', cameraMode: 'orbit', isEStopped: false, keys: {},
-    wheelHeights: [0, 0, 0, 0],
-    normalForces: [18.5, 18.5, 18.5, 18.5]
+// -----------------------------------------------------------------------------
+// Estado da aplicação
+// -----------------------------------------------------------------------------
+const estado = {
+    modo: 'ackermann',
+    camera: 'orbita',
+    teclas: {},
+    parado: false,
+    aceleracao: 0,
+    esterco: 0,
+    tempoMissao: 0,
+    faseMissao: 'ida',        // ida -> coleta -> retorno -> entregue
+    comCarga: false,
+    gravando: false,
+    telemetria: [],
+    variante: 'v2',           // 'v1' = roda Φ300 legada, para comparação
+    ultimoAviso: '',
 };
 
-window.addEventListener('keydown', e => { roverState.keys[e.key.toLowerCase()] = true; });
-window.addEventListener('keyup', e => { roverState.keys[e.key.toLowerCase()] = false; });
+function reiniciarRover(opcoes = {}) {
+    cena.remove(modelo.grupo);
+    if (estado.variante === 'v1') {
+        opcoes = { ...opcoes, raioMax: 0.150, raioCubo: 0.045 };
+    }
+    fisica = new FisicaRover(opcoes);
+    modelo = new ModeloRover({ raioMax: fisica.raioMax, raioCubo: fisica.raioCubo });
+    cena.add(modelo.grupo);
+    fisica.reiniciar(terreno.pontoBase.x, terreno.pontoBase.z, 0);
+    estado.tempoMissao = 0;
+    estado.faseMissao = 'ida';
+    estado.comCarga = false;
+    estado.telemetria = [];
+    modelo.definirAroVisivel(fisica.opcoes.comAro);
+}
+fisica.reiniciar(terreno.pontoBase.x, terreno.pontoBase.z, 0);
 
-document.querySelectorAll('.btn-mode').forEach(btn => {
+// -----------------------------------------------------------------------------
+// Entrada
+// -----------------------------------------------------------------------------
+window.addEventListener('keydown', (e) => {
+    estado.teclas[e.key.toLowerCase()] = true;
+    if (e.key === ' ') e.preventDefault();
+});
+window.addEventListener('keyup', (e) => { estado.teclas[e.key.toLowerCase()] = false; });
+
+function ligar(id, fn) {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('click', fn);
+}
+
+document.querySelectorAll('.btn-mode').forEach((btn) => {
     btn.addEventListener('click', () => {
-        document.querySelectorAll('.btn-mode').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.btn-mode').forEach((b) => b.classList.remove('active'));
         btn.classList.add('active');
-        roverState.steerMode = btn.dataset.mode;
+        estado.modo = btn.dataset.mode;
+        avisar(`Modo ${btn.dataset.mode}: reconfigurando servos ` +
+               `(δs = 2 exige parar para reorientar)`);
     });
 });
 
-document.querySelectorAll('.btn-cam').forEach(btn => {
+document.querySelectorAll('.btn-cam').forEach((btn) => {
     btn.addEventListener('click', () => {
-        document.querySelectorAll('.btn-cam').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.btn-cam').forEach((b) => b.classList.remove('active'));
         btn.classList.add('active');
-        const mode = btn.id.replace('cam-', '');
-        roverState.cameraMode = mode;
-        controls.enabled = (mode === 'orbit');
+        estado.camera = btn.dataset.cam;
+        controles.enabled = estado.camera === 'orbita';
     });
 });
 
-document.getElementById('btn-toggle-box')?.addEventListener('click', () => { rover.toggleBoxLid(); });
-document.getElementById('btn-toggle-explode')?.addEventListener('click', () => { rover.toggleExplodedView(); });
+document.querySelectorAll('[data-toggle]').forEach((el) => {
+    el.addEventListener('change', () => {
+        const opcoes = {
+            comAro: document.getElementById('sw-aro').checked,
+            comCsts: document.getElementById('sw-csts').checked,
+            comElasticos: document.getElementById('sw-elasticos').checked,
+        };
+        reiniciarRover(opcoes);
+        avisar('Configuração de suspensão alterada — rover reposicionado na base.');
+    });
+});
 
-document.getElementById('btn-estop')?.addEventListener('click', () => {
-    roverState.isEStopped = !roverState.isEStopped;
+ligar('btn-tampa', () => modelo.alternarTampa());
+ligar('btn-explodir', () => modelo.alternarExplodido());
+ligar('btn-reiniciar', () => reiniciarRover(fisica.opcoes));
+ligar('btn-escada', () => {
+    const z = terreno.pontoColeta.z - 1.5;
+    fisica.reiniciar(0, z, 0);
+    estado.modo = 'stair';
+    document.querySelectorAll('.btn-mode').forEach((b) => b.classList.remove('active'));
+    document.querySelector('[data-mode="stair"]')?.classList.add('active');
+    avisar('Posicionado ao pé da escadaria em modo escada.');
+});
+ligar('btn-estop', () => {
+    estado.parado = !estado.parado;
     const btn = document.getElementById('btn-estop');
-    btn.textContent = roverState.isEStopped ? '⚡ Reativar Sistema' : '🛑 Parada Emergência (E-Stop)';
-    btn.style.background = roverState.isEStopped ? 'red' : '';
-    if (roverState.isEStopped) roverState.speed = 0;
+    btn.textContent = estado.parado ? '⚡ Rearmar sistema' : '🛑 Parada de emergência';
+    btn.classList.toggle('armado', estado.parado);
+});
+ligar('btn-csv', exportarCsv);
+ligar('btn-variante', () => {
+    estado.variante = estado.variante === 'v2' ? 'v1' : 'v2';
+    avisar(estado.variante === 'v1'
+        ? 'Comparação: roda Φ300 do projeto original — alcance nariz-a-nariz de 260 mm '
+          + 'contra 345 mm exigidos. Ela trava na face do espelho.'
+        : 'De volta à roda Φ420 dimensionada por marcha síncrona.');
+    document.getElementById('btn-variante').textContent =
+        estado.variante === 'v2' ? '🔬 Comparar com a roda Φ300 (R1)' : '↩︎ Voltar à roda Φ420 (R2)';
+    aplicarVariante();
 });
 
-document.getElementById('btn-test-stairs')?.addEventListener('click', () => {
-    roverState.x = 0; roverState.z = -1.0; roverState.heading = 0;
-    roverState.steerMode = 'stair';
-    document.querySelectorAll('.btn-mode').forEach(b => b.classList.remove('active'));
-    document.getElementById('btn-mode-stair')?.classList.add('active');
-});
+/** Reconstrói o rover com o raio da variante escolhida — física inclusive. */
+function aplicarVariante() {
+    reiniciarRover({
+        comAro: document.getElementById('sw-aro').checked,
+        comCsts: document.getElementById('sw-csts').checked,
+        comElasticos: document.getElementById('sw-elasticos').checked,
+    });
+    texto('badge-roda', `Φ${(2 * fisica.raioMax * 1000).toFixed(0)} mm · ${PARAMETROS.roda.num_raios_N} raios`);
+    const el = document.getElementById('badge-sincrona');
+    if (el) {
+        el.textContent = fisica.marchaSincrona ? 'marcha síncrona ✔' : 'marcha assíncrona ✘';
+        el.classList.toggle('ruim', !fisica.marchaSincrona);
+    }
+}
 
-const setupDpad = (id, key) => {
+const dpad = (id, tecla) => {
     const el = document.getElementById(id);
     if (!el) return;
-    el.addEventListener('mousedown', () => { roverState.keys[key] = true; });
-    el.addEventListener('mouseup', () => { roverState.keys[key] = false; });
-    el.addEventListener('touchstart', e => { e.preventDefault(); roverState.keys[key] = true; });
-    el.addEventListener('touchend', e => { e.preventDefault(); roverState.keys[key] = false; });
+    const on = (e) => { e.preventDefault(); estado.teclas[tecla] = true; };
+    const off = (e) => { e.preventDefault(); estado.teclas[tecla] = false; };
+    el.addEventListener('mousedown', on); el.addEventListener('mouseup', off);
+    el.addEventListener('mouseleave', off);
+    el.addEventListener('touchstart', on); el.addEventListener('touchend', off);
 };
-setupDpad('dpad-up', 'w'); setupDpad('dpad-down', 's');
-setupDpad('dpad-left', 'a'); setupDpad('dpad-right', 'd');
-document.getElementById('dpad-stop')?.addEventListener('click', () => { roverState.speed = 0; });
+dpad('dpad-up', 'w'); dpad('dpad-down', 's');
+dpad('dpad-left', 'a'); dpad('dpad-right', 'd');
 
-let lastTime = performance.now();
-function animate(currentTime) {
-    requestAnimationFrame(animate);
-    const dt = Math.min((currentTime - lastTime) / 1000, 0.1);
-    lastTime = currentTime;
+function avisar(texto) {
+    estado.ultimoAviso = texto;
+    const el = document.getElementById('faixa-aviso');
+    if (!el) return;
+    el.textContent = texto;
+    el.classList.add('visivel');
+    clearTimeout(avisar._t);
+    avisar._t = setTimeout(() => el.classList.remove('visivel'), 5200);
+}
 
-    if (!roverState.isEStopped) {
-        const throttle = (roverState.keys['w'] || roverState.keys['arrowup']) ? 1 :
-                         (roverState.keys['s'] || roverState.keys['arrowdown']) ? -1 : 0;
-        if (throttle !== 0) {
-            roverState.speed = THREE.MathUtils.clamp(roverState.speed + throttle * roverState.accel * dt, -0.7, roverState.maxSpeed);
-        } else {
-            roverState.speed = THREE.MathUtils.damp(roverState.speed, 0, 3.5, dt);
-        }
-        if (roverState.keys[' ']) roverState.speed = THREE.MathUtils.damp(roverState.speed, 0, 8, dt);
+// -----------------------------------------------------------------------------
+// Missão
+// -----------------------------------------------------------------------------
+function atualizarMissao() {
+    const pos = new THREE.Vector3(fisica.x, 0, fisica.z);
+    const dColeta = pos.distanceTo(new THREE.Vector3(terreno.pontoColeta.x, 0, terreno.pontoColeta.z));
+    const dEntrega = pos.distanceTo(new THREE.Vector3(terreno.pontoEntrega.x, 0, terreno.pontoEntrega.z));
 
-        const steerDir = (roverState.keys['a'] || roverState.keys['arrowleft']) ? 1 :
-                        (roverState.keys['d'] || roverState.keys['arrowright']) ? -1 : 0;
-        roverState.steerAngle = THREE.MathUtils.damp(roverState.steerAngle, steerDir * roverState.maxSteerAngle, 6, dt);
+    if (estado.faseMissao === 'ida' && dColeta < 0.9 && Math.abs(fisica.velocidade) < 0.15) {
+        estado.faseMissao = 'retorno';
+        estado.comCarga = true;
+        modelo.carregarNotebook(true);
+        avisar('📦 Notebook embarcado. Leve-o até a T.I. no topo da escadaria.');
+    } else if (estado.faseMissao === 'retorno' && dEntrega < 0.9 && Math.abs(fisica.velocidade) < 0.15) {
+        estado.faseMissao = 'entregue';
+        modelo.carregarNotebook(false);
+        avisar(`✅ Missão cumprida em ${estado.tempoMissao.toFixed(0)} s. `
+             + `Pico na carga: ${fisica.picoCargaG.toFixed(2)} g `
+             + `(limite ${PARAMETROS.controle.limite_choque_carga_g} g). `
+             + `Energia: ${fisica.bateria.consumidoWh.toFixed(1)} Wh.`);
+    }
+}
 
-        let steerAngles = [0, 0, 0, 0], vx = 0, vz = 0, yawRate = 0;
-        switch (roverState.steerMode) {
-            case 'ackermann':
-                steerAngles = [roverState.steerAngle, roverState.steerAngle, -roverState.steerAngle, -roverState.steerAngle];
-                yawRate = (roverState.speed / 0.8) * Math.sin(roverState.steerAngle) * 1.5;
-                roverState.heading += yawRate * dt;
-                vx = -Math.sin(roverState.heading) * roverState.speed;
-                vz = -Math.cos(roverState.heading) * roverState.speed;
-                break;
-            case 'crab':
-                steerAngles = [roverState.steerAngle, roverState.steerAngle, roverState.steerAngle, roverState.steerAngle];
-                const crabH = roverState.heading + roverState.steerAngle;
-                vx = -Math.sin(crabH) * roverState.speed;
-                vz = -Math.cos(crabH) * roverState.speed;
-                break;
-            case 'spin':
-                const spinAngle = Math.PI / 4;
-                steerAngles = [spinAngle, -spinAngle, -spinAngle, spinAngle];
-                if (Math.abs(roverState.speed) > 0.05) roverState.heading += (roverState.speed / 0.4) * dt;
-                break;
-            case 'stair':
-                steerAngles = [0, 0, 0, 0];
-                vx = -Math.sin(roverState.heading) * roverState.speed * 0.75;
-                vz = -Math.cos(roverState.heading) * roverState.speed * 0.75;
-                break;
-        }
+function exportarCsv() {
+    if (estado.telemetria.length === 0) { avisar('Sem telemetria gravada ainda.'); return; }
+    const chaves = Object.keys(estado.telemetria[0]);
+    const linhas = [chaves.join(',')];
+    for (const l of estado.telemetria) {
+        linhas.push(chaves.map((k) => (typeof l[k] === 'number' ? l[k].toFixed(5) : l[k])).join(','));
+    }
+    const blob = new Blob([linhas.join('\n')], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'telemetria_rover.csv';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    avisar(`Telemetria exportada (${estado.telemetria.length} amostras).`);
+}
 
-        roverState.x += vx * dt;
-        roverState.z += vz * dt;
+// -----------------------------------------------------------------------------
+// HUD
+// -----------------------------------------------------------------------------
+const el = (id) => document.getElementById(id);
+function texto(id, valor) { const e = el(id); if (e) e.innerHTML = valor; }
+function barra(id, fracao, critico = false) {
+    const e = el(id);
+    if (!e) return;
+    e.style.width = `${Math.max(0, Math.min(100, fracao * 100))}%`;
+    e.classList.toggle('critico', critico);
+}
 
-        // Colisão Independente das 4 Rodas
-        const wheelOffsets = [
-            { x: -0.72, z: -0.68 },
-            { x:  0.72, z: -0.68 },
-            { x: -0.72, z:  0.68 },
-            { x:  0.72, z:  0.68 }
-        ];
+function atualizarHud() {
+    const v = Math.abs(fisica.velocidade);
+    texto('val-speed', `${v.toFixed(2)} <small>m/s</small>`);
+    barra('bar-speed', v / PARAMETROS.cinematica.velocidade_maxima);
 
-        const curWheelY = [];
-        for (let i = 0; i < 4; i++) {
-            const localOff = new THREE.Vector3(wheelOffsets[i].x, 0, wheelOffsets[i].z).applyAxisAngle(new THREE.Vector3(0, 1, 0), roverState.heading);
-            const wx = roverState.x + localOff.x;
-            const wz = roverState.z + localOff.z;
+    const cargaG = Math.abs(fisica.aceleracaoCarga.vertical);
+    const limite = PARAMETROS.controle.limite_choque_carga_g;
+    texto('val-carga', `${cargaG.toFixed(2)} <small>g</small>`);
+    barra('bar-carga', cargaG / limite, cargaG > limite);
+    texto('val-carga-pico', `${fisica.picoCargaG.toFixed(2)} g`);
 
-            const terrainY = getTerrainHeight(wx, wz);
-            const targetY = terrainY + 0.15;
-            roverState.wheelHeights[i] = THREE.MathUtils.damp(roverState.wheelHeights[i], targetY, 10, dt);
-            curWheelY.push(roverState.wheelHeights[i]);
-
-            const isContact = Math.abs(roverState.wheelHeights[i] - targetY) < 0.03;
-            rover.setWheelContactState(i, isContact, roverState.normalForces[i]);
-        }
-
-        const frontY = (curWheelY[0] + curWheelY[1]) / 2;
-        const rearY = (curWheelY[2] + curWheelY[3]) / 2;
-        const leftY = (curWheelY[0] + curWheelY[2]) / 2;
-        const rightY = (curWheelY[1] + curWheelY[3]) / 2;
-
-        const targetBodyY = (frontY + rearY) / 2;
-        const targetPitch = Math.atan2(frontY - rearY, 1.36);
-        const targetRoll = Math.atan2(rightY - leftY, 1.44);
-
-        roverState.y = THREE.MathUtils.damp(roverState.y, targetBodyY, 8, dt);
-        roverState.pitch = THREE.MathUtils.damp(roverState.pitch, targetPitch, 8, dt);
-        roverState.roll = THREE.MathUtils.damp(roverState.roll, targetRoll, 8, dt);
-
-        const totalWeight = 74.0;
-        const pitchFactor = Math.sin(roverState.pitch);
-        roverState.normalForces[0] = Math.max(2, (totalWeight / 4) - pitchFactor * 12);
-        roverState.normalForces[1] = Math.max(2, (totalWeight / 4) - pitchFactor * 12);
-        roverState.normalForces[2] = Math.max(2, (totalWeight / 4) + pitchFactor * 12);
-        roverState.normalForces[3] = Math.max(2, (totalWeight / 4) + pitchFactor * 12);
-
-        rover.boxGroup.rotation.x = -(roverState.speed / roverState.maxSpeed) * 0.04 + roverState.pitch * 0.7;
-
-        rover.group.position.set(roverState.x, roverState.y, roverState.z);
-        rover.group.rotation.y = roverState.heading;
-        rover.group.rotation.x = roverState.pitch;
-        rover.group.rotation.z = roverState.roll;
-
-        rover.setSteeringAngles(steerAngles);
-        rover.rotateWheels(roverState.speed * dt * 7);
-
-        const bounce = (Math.abs(roverState.speed) > 0.1) ? 0.08 : 0.01;
-        rover.updateSuspensionCompliance(bounce);
-
-        // Câmeras
-        if (roverState.cameraMode === 'orbit') {
-            controls.target.set(roverState.x, roverState.y + 0.15, roverState.z);
-        } else if (roverState.cameraMode === 'fpv') {
-            const fpvPos = new THREE.Vector3(0, 0.24, -0.24).applyAxisAngle(new THREE.Vector3(0, 1, 0), roverState.heading).add(new THREE.Vector3(roverState.x, roverState.y, roverState.z));
-            camera.position.copy(fpvPos);
-            const look = new THREE.Vector3(0, 0.20, -2.5).applyAxisAngle(new THREE.Vector3(0, 1, 0), roverState.heading).add(new THREE.Vector3(roverState.x, roverState.y, roverState.z));
-            camera.lookAt(look);
-        } else if (roverState.cameraMode === 'top') {
-            camera.position.set(roverState.x, roverState.y + 4.2, roverState.z + 0.01);
-            camera.lookAt(roverState.x, roverState.y, roverState.z);
-        } else if (roverState.cameraMode === 'side') {
-            const side = new THREE.Vector3(2.4, 0.4, 0).applyAxisAngle(new THREE.Vector3(0, 1, 0), roverState.heading);
-            camera.position.copy(new THREE.Vector3(roverState.x, roverState.y, roverState.z).add(side));
-            camera.lookAt(roverState.x, roverState.y + 0.15, roverState.z);
-        }
-
-        // HUD Telemetria
-        const speedMs = Math.abs(roverState.speed);
-        const speedEl = document.getElementById('val-speed');
-        if (speedEl) speedEl.innerHTML = `${speedMs.toFixed(2)} <small>m/s</small>`;
-        const speedBar = document.getElementById('bar-speed');
-        if (speedBar) speedBar.style.width = `${(speedMs / roverState.maxSpeed) * 100}%`;
-        const rpm = Math.round((speedMs / (0.30 * Math.PI)) * 60);
-        const rpmEl = document.getElementById('val-rpm');
-        if (rpmEl) rpmEl.innerHTML = `${rpm} <small>RPM</small>`;
-        const rpmBar = document.getElementById('bar-rpm');
-        if (rpmBar) rpmBar.style.width = `${(rpm / 120) * 100}%`;
-        const pitchEl = document.getElementById('val-pitch');
-        if (pitchEl) pitchEl.textContent = `${(roverState.pitch * 57.3).toFixed(1)}°`;
-        const rollEl = document.getElementById('val-roll');
-        if (rollEl) rollEl.textContent = `${(roverState.roll * 57.3).toFixed(1)}°`;
-        const horizon = document.getElementById('horizon-disc');
-        if (horizon) horizon.style.transform = `rotate(${-roverState.roll * 57.3}deg) translateY(${roverState.pitch * 35}px)`;
-
-        const fzFL = document.getElementById('fz-fl');
-        if (fzFL) fzFL.textContent = `${roverState.normalForces[0].toFixed(1)} N`;
-        const fzFR = document.getElementById('fz-fr');
-        if (fzFR) fzFR.textContent = `${roverState.normalForces[1].toFixed(1)} N`;
-        const fzRL = document.getElementById('fz-rl');
-        if (fzRL) fzRL.textContent = `${roverState.normalForces[2].toFixed(1)} N`;
-        const fzRR = document.getElementById('fz-rr');
-        if (fzRR) fzRR.textContent = `${roverState.normalForces[3].toFixed(1)} N`;
+    texto('val-pitch', `${(fisica.arfagem * RAD).toFixed(1)}°`);
+    texto('val-roll', `${(fisica.rolagem * RAD).toFixed(1)}°`);
+    texto('val-limiar', `${fisica.limiarArfagem.toFixed(0)}°`);
+    const horizonte = el('horizon-disc');
+    if (horizonte) {
+        horizonte.style.transform =
+            `rotate(${-fisica.rolagem * RAD}deg) translateY(${fisica.arfagem * RAD * 1.6}px)`;
     }
 
-    if (roverState.cameraMode === 'orbit') controls.update();
-    renderer.render(scene, camera);
+    for (const id of IDS_RODAS) {
+        texto(`val-steer-${id.toLowerCase()}`, `${(fisica.anguloEstercamento[id] * RAD).toFixed(0)}°`);
+        texto(`fz-${id.toLowerCase()}`, `${fisica.forcasNormais[id].toFixed(1)} N`);
+        const r = fisica.rodas[id];
+        texto(`contato-${id.toLowerCase()}`, r.tipoContato === 'raio' ? 'raio' : 'aro');
+        texto(`csts-${id.toLowerCase()}`, `${(r.deflexaoCsts * RAD).toFixed(0)}°`);
+    }
+
+    texto('val-soc', `${(fisica.bateria.soc * 100).toFixed(0)} <small>%</small>`);
+    barra('bar-soc', fisica.bateria.soc, fisica.bateria.soc < 0.25);
+    texto('val-corrente', `${fisica.correnteTotal.toFixed(1)} <small>A</small>`);
+    texto('val-tensao', `${fisica.bateria.tensao(fisica.correnteTotal).toFixed(1)} V`);
+    texto('val-wh', `${fisica.bateria.consumidoWh.toFixed(2)} Wh`);
+
+    texto('val-temp', `${fisica.termica.temperatura.toFixed(0)} <small>°C</small>`);
+    barra('bar-temp', fisica.termica.fracao, fisica.termica.fracao > 0.85);
+
+    texto('val-margem', fisica.margemTorque > 90 ? '—' : fisica.margemTorque.toFixed(2));
+    texto('val-torque', `${fisica.torquePorRoda.toFixed(2)} N·m`);
+    texto('val-dist', `${fisica.distanciaPercorrida.toFixed(1)} m`);
+    texto('val-tempo', `${estado.tempoMissao.toFixed(0)} s`);
+
+    const fases = { ida: 'Ida — buscar o notebook', retorno: 'Retorno — entregar na T.I.',
+                    entregue: 'Missão concluída' };
+    texto('val-fase', fases[estado.faseMissao]);
+
+    const alertas = [];
+    if (fisica.alertaTombamento) alertas.push('⚠️ INCLINAÇÃO CRÍTICA');
+    if (fisica.emProtecaoTermica) alertas.push('🌡️ PROTEÇÃO TÉRMICA (I²t)');
+    if (fisica.escorregando) alertas.push('🧊 ATRITO INSUFICIENTE');
+    if (fisica.margemTorque < 1.0) alertas.push('🔧 TORQUE SATURADO');
+    if (fisica.estercamentoSaturado) alertas.push('🔄 ESTERÇAMENTO SATURADO (odometria degradada)');
+    if (cargaG > limite) alertas.push('📦 CHOQUE ACIMA DO LIMITE DA CARGA');
+    const caixaAlertas = el('painel-alertas');
+    if (caixaAlertas) {
+        caixaAlertas.innerHTML = alertas.length
+            ? alertas.map((a) => `<div class="alerta">${a}</div>`).join('')
+            : '<div class="alerta ok">✔ Todos os parâmetros dentro do envelope</div>';
+    }
 }
-requestAnimationFrame(animate);
+
+// -----------------------------------------------------------------------------
+// Laço principal
+// -----------------------------------------------------------------------------
+let ultimoTempo = performance.now();
+let acumuladorTelemetria = 0;
+
+function animar(agora) {
+    requestAnimationFrame(animar);
+    const dt = Math.min((agora - ultimoTempo) / 1000, 0.05);
+    ultimoTempo = agora;
+
+    const t = estado.teclas;
+    const frente = (t.w || t.arrowup) ? 1 : (t.s || t.arrowdown) ? -1 : 0;
+    const lado = (t.a || t.arrowleft) ? 1 : (t.d || t.arrowright) ? -1 : 0;
+
+    const vMax = estado.modo === 'stair'
+        ? PARAMETROS.cinematica.velocidade_escada
+        : PARAMETROS.cinematica.velocidade_maxima;
+
+    let velocidadeAlvo = estado.parado ? 0 : frente * vMax;
+    if (t[' ']) velocidadeAlvo = 0;
+
+    const comando = {
+        modo: estado.modo,
+        velocidadeAlvo,
+        vFrente: velocidadeAlvo,
+        vLateral: estado.modo === 'crab' ? lado * vMax * 0.8 : 0,
+        omega: estado.modo === 'spin' ? lado * 1.2 : lado * 0.9,
+    };
+
+    fisica.avancar(terreno, comando, dt);
+    modelo.aplicarEstado(fisica);
+
+    modelo.grupo.position.set(fisica.x, fisica.y, fisica.z);
+    modelo.grupo.rotation.set(fisica.arfagem, fisica.rumo, fisica.rolagem, 'YXZ');
+
+    // O cronômetro da missão segue o TEMPO SIMULADO, não o relógio de parede:
+    // em máquina lenta (ou sem GPU) a física roda em câmera lenta, e misturar as
+    // duas bases faria a telemetria mentir sobre velocidade e energia.
+    if (estado.faseMissao !== 'entregue') estado.tempoMissao = fisica.tempo;
+    atualizarMissao();
+
+    acumuladorTelemetria += dt;
+    if (acumuladorTelemetria >= 1 / PARAMETROS.controle.frequencia_telemetria_hz) {
+        acumuladorTelemetria = 0;
+        estado.telemetria.push(fisica.telemetria());
+        if (estado.telemetria.length > 20000) estado.telemetria.shift();
+    }
+
+    atualizarCamera();
+    atualizarHud();
+    if (estado.camera === 'orbita') controles.update();
+    renderer.render(cena, camera);
+}
+
+function atualizarCamera() {
+    const pos = new THREE.Vector3(fisica.x, fisica.y, fisica.z);
+    if (estado.camera === 'orbita') {
+        controles.target.lerp(pos, 0.15);
+    } else if (estado.camera === 'fpv') {
+        const offset = new THREE.Vector3(0, 0.22, -0.26)
+            .applyAxisAngle(new THREE.Vector3(0, 1, 0), fisica.rumo);
+        camera.position.copy(pos.clone().add(offset));
+        const alvo = new THREE.Vector3(0, 0.05, -3.0)
+            .applyAxisAngle(new THREE.Vector3(0, 1, 0), fisica.rumo).add(pos);
+        camera.lookAt(alvo);
+    } else if (estado.camera === 'topo') {
+        camera.position.set(fisica.x, fisica.y + 6.0, fisica.z + 0.01);
+        camera.lookAt(fisica.x, fisica.y, fisica.z);
+    } else if (estado.camera === 'lateral') {
+        const lado = new THREE.Vector3(2.6, 0.5, 0)
+            .applyAxisAngle(new THREE.Vector3(0, 1, 0), fisica.rumo);
+        camera.position.copy(pos.clone().add(lado));
+        camera.lookAt(pos);
+    }
+}
 
 window.addEventListener('resize', () => {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
 });
+
+// Cabeçalho com os parâmetros ativos — o protótipo declara o que está simulando
+texto('badge-roda', `Φ${(2 * PARAMETROS.roda.raio_max * 1000).toFixed(0)} mm · ${PARAMETROS.roda.num_raios_N} raios`);
+texto('badge-massa', `${PARAMETROS.massas.massa_total.toFixed(1)} kg`);
+texto('badge-escada', `degrau ${(PARAMETROS.ambiente.escada.espelho_E * 1000).toFixed(0)}×${(PARAMETROS.ambiente.escada.piso_P * 1000).toFixed(0)} mm`);
+texto('badge-revisao', PARAMETROS.meta.revisao);
+
+avisar('Percurso de homologação carregado. Vá até o marcador azul, embarque o notebook '
+     + 'e entregue no marcador verde, no topo da escadaria.');
+requestAnimationFrame(animar);
