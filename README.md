@@ -219,12 +219,16 @@ graph TD
 **[06. Roadmap Futuro](06_Roadmap_Futuro_Fases_Pos_Sucesso/)**
 * [01. Fase A — Longo Alcance](06_Roadmap_Futuro_Fases_Pos_Sucesso/01_Fase_A_Extensao_Distancias_e_Ambientes_Reais.md) · [02. Fase B — Uso Dual e Fibra Óptica](06_Roadmap_Futuro_Fases_Pos_Sucesso/02_Fase_B_Uso_Dual_e_Controle_Fibra_Optica.md)
 
+**[07. Curso ROS 2 Aplicado](07_Curso_ROS2_Rover_Frugal/)** — 11 módulos completos baseados em Francisco Martín Rico (2022)
+* [00. Plano do Curso e Ementa](07_Curso_ROS2_Rover_Frugal/README.md) · [01. Fundamentos & Workspace](07_Curso_ROS2_Rover_Frugal/01_Fundamentos_ROS2_e_Workspace.md) · [02. Tópicos & QoS](07_Curso_ROS2_Rover_Frugal/02_Topicos_Mensagens_e_Telemetria.md) · [03. Serviços & Ações](07_Curso_ROS2_Rover_Frugal/03_Servicos_e_Acoes_de_Missao.md) · [04. Parâmetros](07_Curso_ROS2_Rover_Frugal/04_Parametros_e_Configuracoes.md) · [05. TF2 & Cinemática](07_Curso_ROS2_Rover_Frugal/05_Transformadas_TF2_e_Cinematica.md) · [06. URDF/Xacro & Gazebo](07_Curso_ROS2_Rover_Frugal/06_URDF_Xacro_e_Gemeo_Digital_Gazebo.md) · [07. Percepção & EKF](07_Curso_ROS2_Rover_Frugal/07_Sensores_Odometria_e_Fusao_EKF.md) · [08. SLAM & Costmaps](07_Curso_ROS2_Rover_Frugal/08_Mapeamento_SLAM_e_Costmaps.md) · [09. Nav2 Autônomo](07_Curso_ROS2_Rover_Frugal/09_Navegacao_Autonoma_Nav2.md) · [10. Behavior Trees](07_Curso_ROS2_Rover_Frugal/10_Behavior_Trees_e_Missao_Final.md) · [11. micro-ROS no ESP32](07_Curso_ROS2_Rover_Frugal/11_microROS_e_Hardware_ESP32.md)
+
 ---
 
 ## Base teórica
 
 | Obra | O que este projeto usa |
 | :--- | :--- |
+| **Francisco Martín Rico (2022)**, *A Concise Introduction to Robot Programming with ROS2* | arquitetura DDS, QoS, Action Servers para escadas, TF2 dinâmico, Nav2 e Behavior Trees |
 | **Siegwart & Nourbakhsh (2004)**, *Introduction to Autonomous Mobile Robots* | restrições de rolamento e deslizamento, grau de manobrabilidade (Tabela 3.1), odometria, margem de estabilidade |
 | **J. Y. Wong (2022)**, *Theory of Ground Vehicles* | transferência de carga em rampa, esforço trativo, resistência ao rolamento, momento resistente de derrapagem |
 | **Sclater & Chironis (2001)**, *Mechanisms and Mechanical Devices Sourcebook* | abraçadeiras bipartidas, presilhas toggle over-center, tensores elásticos com batente |
