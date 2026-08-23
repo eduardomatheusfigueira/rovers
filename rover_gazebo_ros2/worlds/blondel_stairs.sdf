@@ -1,0 +1,95 @@
+<?xml version="1.0" ?>
+<sdf version="1.8">
+  <world name="blondel_stairs_world">
+    <physics name="1ms" type="ignored">
+      <max_step_size>0.001</max_step_size>
+      <real_time_factor>1.0</real_time_factor>
+    </physics>
+
+    <!-- Plugins do Mundo -->
+    <plugin filename="gz-sim-physics-system" name="gz::sim::systems::Physics"/>
+    <plugin filename="gz-sim-user-commands-system" name="gz::sim::systems::UserCommands"/>
+    <plugin filename="gz-sim-scene-broadcaster-system" name="gz::sim::systems::SceneBroadcaster"/>
+    <plugin filename="gz-sim-sensors-system" name="gz::sim::systems::Sensors">
+      <render_engine>ogre2</render_engine>
+    </plugin>
+
+    <!-- Iluminação Solar -->
+    <light type="directional" name="sun">
+      <cast_shadows>true</cast_shadows>
+      <pose>0 0 10 0 0 0</pose>
+      <diffuse>0.8 0.8 0.8 1</diffuse>
+      <specular>0.2 0.2 0.2 1</specular>
+      <direction>-0.5 0.1 -0.9</direction>
+    </light>
+
+    <!-- Solo Principal -->
+    <model name="ground_plane">
+      <static>true</static>
+      <link name="link">
+        <collision name="collision">
+          <geometry><plane><normal>0 0 1</normal><size>100 100</size></plane></geometry>
+          <surface>
+            <friction>
+              <ode><mu>0.85</mu><mu2>0.85</mu2></ode>
+            </friction>
+          </surface>
+        </collision>
+        <visual name="visual">
+          <geometry><plane><normal>0 0 1</normal><size>100 100</size></plane></geometry>
+          <material>
+            <ambient>0.2 0.2 0.25 1</ambient>
+            <diffuse>0.3 0.3 0.35 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Escadaria de Blondel Padrão (NBR 9050: E = 17cm, P = 30cm, Largura = 3.0m) -->
+    <model name="blondel_staircase">
+      <static>true</static>
+      <pose>3.0 0 0 0 0 0</pose>
+      
+      <!-- Degrau 1 -->
+      <link name="step_1">
+        <pose>0.15 0 0.085 0 0 0</pose>
+        <collision name="c1"><geometry><box><size>0.30 3.0 0.17</size></box></geometry></collision>
+        <visual name="v1">
+          <geometry><box><size>0.30 3.0 0.17</size></box></geometry>
+          <material><ambient>0.0 0.7 0.9 1</ambient><diffuse>0.0 0.7 0.9 1</diffuse></material>
+        </visual>
+      </link>
+
+      <!-- Degrau 2 -->
+      <link name="step_2">
+        <pose>0.45 0 0.17 0 0 0</pose>
+        <collision name="c2"><geometry><box><size>0.30 3.0 0.34</size></box></geometry></collision>
+        <visual name="v2">
+          <geometry><box><size>0.30 3.0 0.34</size></box></geometry>
+          <material><ambient>0.0 0.7 0.9 1</ambient><diffuse>0.0 0.7 0.9 1</diffuse></material>
+        </visual>
+      </link>
+
+      <!-- Degrau 3 -->
+      <link name="step_3">
+        <pose>0.75 0 0.255 0 0 0</pose>
+        <collision name="c3"><geometry><box><size>0.30 3.0 0.51</size></box></geometry></collision>
+        <visual name="v3">
+          <geometry><box><size>0.30 3.0 0.51</size></box></geometry>
+          <material><ambient>0.0 0.7 0.9 1</ambient><diffuse>0.0 0.7 0.9 1</diffuse></material>
+        </visual>
+      </link>
+
+      <!-- Patamar Superior -->
+      <link name="platform">
+        <pose>1.90 0 0.255 0 0 0</pose>
+        <collision name="cp"><geometry><box><size>2.0 3.0 0.51</size></box></geometry></collision>
+        <visual name="vp">
+          <geometry><box><size>2.0 3.0 0.51</size></box></geometry>
+          <material><ambient>0.1 0.5 0.7 1</ambient><diffuse>0.1 0.5 0.7 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+  </world>
+</sdf>

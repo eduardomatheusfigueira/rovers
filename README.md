@@ -150,6 +150,23 @@ aceleração sentida pelo notebook.
 
 ---
 
+## 🤖 Simulação em ROS 2 e Gazebo Sim (`ros_gz_bridge` + `rclpy`)
+
+Para navegação autônoma (**Nav2**), mapeamento (**SLAM**) e controle cinemático 4WS/4WD completo:
+
+* 📦 **Pacote ROS 2**: [`rover_gazebo_ros2/`](rover_gazebo_ros2/)
+* 📄 **Guia de Execução**: [`rover_gazebo_ros2/README_ROS2_GAZEBO.md`](rover_gazebo_ros2/README_ROS2_GAZEBO.md)
+* 🪜 **Mundo SDF**: Escadaria de Blondel normatizada em `rover_gazebo_ros2/worlds/blondel_stairs.sdf`
+* 🔌 **Ponte de Tópicos**: Mapeamento de `/cmd_vel`, `/odom`, `/joint_states`, `/scan` (LiDAR) e `/imu/data`.
+
+```bash
+# Executar a simulação no ROS 2 (Humble / Jazzy):
+ros2 launch rover_gazebo_ros2 gazebo_sim.launch.py
+```
+
+
+---
+
 ## Mapa da documentação
 
 ```mermaid

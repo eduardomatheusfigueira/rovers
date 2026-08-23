@@ -1,0 +1,225 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="rover_frugal">
+
+  <!-- ========================================== -->
+  <!-- Constantes Mestres (Fonte Única de Verdade) -->
+  <!-- ========================================== -->
+  <xacro:property name="wheelbase" value="1.36"/>
+  <xacro:property name="track_width" value="1.44"/>
+  <xacro:property name="r_wheel_max" value="0.210"/> <!-- Roda Phi 420mm (Blondel E=17cm, P=30cm) -->
+  <xacro:property name="r_wheel_hub" value="0.065"/>
+  <xacro:property name="wheel_width" value="0.080"/>
+  
+  <xacro:property name="mass_chassis" value="3.5"/>
+  <xacro:property name="mass_payload" value="2.5"/>
+  <xacro:property name="mass_knuckle" value="0.25"/>
+  <xacro:property name="mass_wheel" value="0.75"/>
+
+  <!-- Materiais RViz -->
+  <material name="pvc_white"><color rgba="0.95 0.95 0.95 1.0"/></material>
+  <material name="clamp_orange"><color rgba="1.0 0.42 0.13 1.0"/></material>
+  <material name="box_cyan"><color rgba="0.0 0.7 0.9 0.6"/></material>
+  <material name="wheel_spoke"><color rgba="1.0 0.42 0.13 1.0"/></material>
+  <material name="rubber_black"><color rgba="0.1 0.1 0.1 1.0"/></material>
+
+  <!-- ========================================== -->
+  <!-- Base Link e Chassi em X (Tubos PVC)        -->
+  <!-- ========================================== -->
+  <link name="base_footprint"/>
+
+  <joint name="base_footprint_joint" type="fixed">
+    <parent link="base_footprint"/>
+    <child link="base_link"/>
+    <origin xyz="0 0 ${r_wheel_max + 0.15}" rpy="0 0 0"/>
+  </joint>
+
+  <link name="base_link">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="${mass_chassis}"/>
+      <inertia ixx="0.45" ixy="0" ixz="0" iyy="0.40" iyz="0" izz="0.75"/>
+    </inertial>
+    <!-- Hub Central em X -->
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry><box size="0.30 0.30 0.08"/></geometry>
+      <material name="clamp_orange"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry><box size="0.30 0.30 0.08"/></geometry>
+    </collision>
+  </link>
+
+  <!-- ========================================== -->
+  <!-- Caixa Organizadora Pendular (Carga Útil)   -->
+  <!-- ========================================== -->
+  <link name="payload_box_link">
+    <inertial>
+      <origin xyz="0 0 -0.05" rpy="0 0 0"/>
+      <mass value="${mass_payload}"/>
+      <inertia ixx="0.04" ixy="0" ixz="0" iyy="0.06" iyz="0" izz="0.08"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 -0.05" rpy="0 0 0"/>
+      <geometry><box size="0.46 0.32 0.22"/></geometry>
+      <material name="box_cyan"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 -0.05" rpy="0 0 0"/>
+      <geometry><box size="0.46 0.32 0.22"/></geometry>
+    </collision>
+  </link>
+
+  <joint name="payload_pendulum_joint" type="revolute">
+    <parent link="base_link"/>
+    <child link="payload_box_link"/>
+    <origin xyz="0 0 -0.04" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-0.35" upper="0.35" effort="10.0" velocity="2.0"/>
+    <dynamics damping="0.5" friction="0.05"/>
+  </joint>
+
+  <!-- ========================================== -->
+  <!-- Macro: Perna em V Invertido + Manga + Roda -->
+  <!-- ========================================== -->
+  <xacro:macro name="rover_corner" params="prefix pos_x pos_y">
+    <!-- Manga de Direção (Knuckle 4WS) -->
+    <link name="${prefix}_knuckle_link">
+      <inertial>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <mass value="${mass_knuckle}"/>
+        <inertia ixx="0.005" ixy="0" ixz="0" iyy="0.005" iyz="0" izz="0.005"/>
+      </inertial>
+      <visual>
+        <geometry><cylinder radius="0.035" length="0.10"/></geometry>
+        <material name="clamp_orange"/>
+      </visual>
+      <collision>
+        <geometry><cylinder radius="0.035" length="0.10"/></geometry>
+      </collision>
+    </link>
+
+    <!-- Junta de Esterçamento (4WS) -->
+    <joint name="${prefix}_steer_joint" type="revolute">
+      <parent link="base_link"/>
+      <child link="${prefix}_knuckle_link"/>
+      <origin xyz="${pos_x} ${pos_y} -0.15" rpy="0 0 0"/>
+      <axis xyz="0 0 1"/>
+      <limit lower="-0.785" upper="0.785" effort="15.0" velocity="3.0"/>
+      <dynamics damping="0.1" friction="0.05"/>
+    </joint>
+
+    <!-- Roda de 3 Raios Curvos (4WD) -->
+    <link name="${prefix}_wheel_link">
+      <inertial>
+        <origin xyz="0 0 0" rpy="${pi/2} 0 0"/>
+        <mass value="${mass_wheel}"/>
+        <inertia ixx="0.012" ixy="0" ixz="0" iyy="0.012" iyz="0" izz="0.020"/>
+      </inertial>
+      <!-- Cubo Central com Mola C-STS -->
+      <visual>
+        <origin xyz="0 0 0" rpy="${pi/2} 0 0"/>
+        <geometry><cylinder radius="${r_wheel_hub}" length="${wheel_width}"/></geometry>
+        <material name="clamp_orange"/>
+      </visual>
+      <!-- Colisão Cilindro Envoltório com Atrito de Borracha -->
+      <collision>
+        <origin xyz="0 0 0" rpy="${pi/2} 0 0"/>
+        <geometry><cylinder radius="${r_wheel_max}" length="${wheel_width}"/></geometry>
+      </collision>
+    </link>
+
+    <!-- Junta de Propulsão (4WD) -->
+    <joint name="${prefix}_wheel_joint" type="continuous">
+      <parent link="${prefix}_knuckle_link"/>
+      <child link="${prefix}_wheel_link"/>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <axis xyz="0 1 0"/>
+      <dynamics damping="0.05" friction="0.02"/>
+    </joint>
+
+    <!-- Configuração de Atrito no Gazebo Sim (Coulomb mu = 0.85) -->
+    <gazebo reference="${prefix}_wheel_link">
+      <mu1>0.85</mu1>
+      <mu2>0.85</mu2>
+      <kp>100000.0</kp>
+      <kd>10.0</kd>
+      <material>Gazebo/Orange</material>
+    </gazebo>
+  </xacro:macro>
+
+  <!-- Instanciação das 4 Pernas e Rodas -->
+  <xacro:rover_corner prefix="fl" pos_x="${wheelbase/2.0}"  pos_y="${track_width/2.0}"/>
+  <xacro:rover_corner prefix="fr" pos_x="${wheelbase/2.0}"  pos_y="-${track_width/2.0}"/>
+  <xacro:rover_corner prefix="rl" pos_x="-${wheelbase/2.0}" pos_y="${track_width/2.0}"/>
+  <xacro:rover_corner prefix="rr" pos_x="-${wheelbase/2.0}" pos_y="-${track_width/2.0}"/>
+
+  <!-- ========================================== -->
+  <!-- Sensores: IMU e LiDAR para Nav2 / SLAM     -->
+  <!-- ========================================== -->
+  <link name="imu_link"/>
+  <joint name="imu_joint" type="fixed">
+    <parent link="payload_box_link"/>
+    <child link="imu_link"/>
+    <origin xyz="0 0 0.05" rpy="0 0 0"/>
+  </joint>
+
+  <link name="lidar_link">
+    <visual>
+      <geometry><cylinder radius="0.04" length="0.04"/></geometry>
+      <material name="rubber_black"/>
+    </visual>
+  </link>
+  <joint name="lidar_joint" type="fixed">
+    <parent link="payload_box_link"/>
+    <child link="lidar_link"/>
+    <origin xyz="0.18 0 0.12" rpy="0 0 0"/>
+  </joint>
+
+  <!-- Plugins Gazebo Sim (gz-sim) -->
+  <gazebo>
+    <plugin filename="gz-sim-joint-state-publisher-system" name="gz::sim::systems::JointStatePublisher">
+      <topic>/joint_states</topic>
+    </plugin>
+
+    <!-- IMU Plugin -->
+    <plugin filename="gz-sim-imu-system" name="gz::sim::systems::Imu"/>
+  </gazebo>
+
+  <!-- Configuração do Sensor LiDAR no Gazebo -->
+  <gazebo reference="lidar_link">
+    <sensor name="lidar_2d" type="gpu_lidar">
+      <pose>0 0 0 0 0 0</pose>
+      <topic>/scan</topic>
+      <update_rate>15</update_rate>
+      <lidar>
+        <scan>
+          <horizontal>
+            <samples>360</samples>
+            <resolution>1</resolution>
+            <min_angle>-3.14159</min_angle>
+            <max_angle>3.14159</max_angle>
+          </horizontal>
+        </scan>
+        <range>
+          <min>0.12</min>
+          <max>12.0</max>
+          <resolution>0.01</resolution>
+        </range>
+      </lidar>
+      <visualize>true</visualize>
+    </sensor>
+  </gazebo>
+
+  <!-- Configuração do Sensor IMU no Gazebo -->
+  <gazebo reference="imu_link">
+    <sensor name="imu_sensor" type="imu">
+      <always_on>1</always_on>
+      <update_rate>100</update_rate>
+      <visualize>true</visualize>
+      <topic>/imu/data</topic>
+    </sensor>
+  </gazebo>
+
+</robot>
