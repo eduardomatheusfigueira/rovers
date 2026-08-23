@@ -1,6 +1,15 @@
 # 03. Cinemática de Locomoção: Tração 4WD e Esterçamento 4WS
 ## Modelo Cinemático Rigoroso (Siegwart & Nourbakhsh, 2004), ICR e Eficiência Energética (Wong, 2022)
 
+> [!IMPORTANT]
+> **Revisão R2 — corrigido em linha**
+> A classificação cinemática de Siegwart deste documento estava incorreta (δm = 2 e δs = 4 somam 6, não 3) e a conclusão de holonomia não se sustenta. As correções estão marcadas no texto; ver [A-05](../00_Especificacao_Mestre/02_Auditoria_Tecnica.md#a-05) e [A-06](../00_Especificacao_Mestre/02_Auditoria_Tecnica.md#a-06).
+>
+> Parâmetros vigentes: [`00_Especificacao_Mestre/00_Parametros_Mestres.md`](../00_Especificacao_Mestre/00_Parametros_Mestres.md) ·
+> Achados: [`02_Auditoria_Tecnica.md`](../00_Especificacao_Mestre/02_Auditoria_Tecnica.md)
+
+---
+
 ---
 
 ## 1. Topologia Mecatrônica e Grau de Manobrabilidade
@@ -22,12 +31,35 @@ graph TD
 ```
 
 ### Grau de Manobrabilidade $\delta_M = 3$ (Siegwart & Nourbakhsh, 2004)
-Conforme a formulação clássica de *Siegwart & Nourbakhsh (Intro to Autonomous Mobile Robots, Cap. 3)*:
-* **Grau de Mobilidade**: $\delta_m = 2$ (velocidade longitudinal e lateral instantânea no plano).
-* **Grau de Dirigibilidade**: $\delta_s = 4$ (orientação independente dos 4 planos de roda).
-* **Grau de Manobrabilidade**: $\delta_M = \delta_m + \delta_s \ge 3$.
 
-> **Implicação Fundamental**: O veículo é **holonômico no espaço de velocidades instantâneas**, sendo capaz de transladar em qualquer ângulo no plano ($X, Y$) e rotacionar ($\dot{\theta}$) de forma totalmente desacoplada, sem necessitar de rodas Mecanum/suecas frágeis e ineficientes.
+> **Corrigido em R2.** A versão anterior deste trecho afirmava $\delta_m = 2$ e
+> $\delta_s = 4$ — que somam 6, não 3 — e concluía holonomia. Siegwart demonstra
+> que $\delta_s \le 2$: com mais de duas rodas direcionais as demais são
+> **redundantes**, pois os ângulos precisam convergir num ICR comum. O posto da
+> matriz de restrições é calculado numericamente em
+> `simulador_python/kinematics.py::classificar_siegwart`.
+
+Conforme a formulação de *Siegwart & Nourbakhsh (Intro to Autonomous Mobile Robots,
+Cap. 3)*, com as rodas em configuração **coordenada** (posto de $C_{1s}$ igual a 2):
+
+* **Grau de Mobilidade**: $\delta_m = 3 - \text{posto}(C_{1s}) = 1$.
+* **Grau de Dirigibilidade**: $\delta_s = 2$.
+* **Grau de Manobrabilidade**: $\delta_M = \delta_m + \delta_s = 3$.
+
+O rover pertence à categoria **"Two-Steer"** da Tabela 3.1 de Siegwart.
+
+> **Implicação Fundamental**: $\delta_M = 3$ significa que o veículo **alcança**
+> qualquer movimento no plano — translação em qualquer direção e rotação. Mas
+> $\delta_s = 2$ significa que ele **não é holonômico**: para mudar a direção
+> instantânea de movimento é preciso **parar e reorientar as rodas**. O custo
+> medido dessa reconfiguração é de 0,10 s (modo escada) a 0,56 s (caranguejo), e
+> entra no cronograma da missão.
+>
+> **Consequência de projeto:** as quatro direções formam um sistema
+> **sobre-restrito**. Se as quatro normais não convergirem exatamente, o posto de
+> $C_{1s}$ sobe para 3, $\delta_m$ cai a zero e o veículo **trava** — na prática,
+> arrasta lateralmente. Um erro de 1° em um único servo produz 15,5 mm/s de
+> arrasto a 1 m/s. Daí o requisito de calibração de ±1,0° (REQ-403).
 
 ---
 
@@ -97,7 +129,12 @@ $$\delta_{frente} = \arctan\left(\frac{L/2}{R \mp B/2}\right), \quad \delta_{tra
 
 Conforme a análise de terramecânica de *J. Y. Wong (Theory of Ground Vehicles, Cap. 6)*, veículos com direção por derrapagem diferencial (*Skid-Steer*) demandam um momento resistente lateral gigantesco devido ao atrito por arraste dos pneus:
 
-$$M_{resiste\_skid} = \frac{\mu_{lateral} \cdot W \cdot L}{4}$$
+$$M_{r} = \frac{\mu_{t} \cdot W \cdot L}{4}$$
+
+A potência gasta apenas para vencer esse arrasto é $P_{arrasto} = M_r\,\omega$ —
+e ela **não existe** no 4WS coordenado, cujo resíduo de deslizamento é nulo por
+construção (verificado em `test_sem_arrasto_lateral`, resíduo < 10⁻¹² m/s).
+A 0,8 m/s em curva de 1,2 m: **2,1 W (4WS) contra 10,5 W (skid-steer)**.
 
 | Métrica de Desempenho | Skid-Steering Convencional | Arquitetura 4WS com Servos (Adotada) |
 | :--- | :--- | :--- |

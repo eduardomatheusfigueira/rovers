@@ -250,6 +250,131 @@ export const PARAMETROS = {
             "meta": 15.0,
             "minimo": 10.0
         }
+    },
+    "estrutura": {
+        "bracos": {
+            "FL": {
+                "abracadeira": [
+                    -0.1845,
+                    0.357,
+                    -0.1875
+                ],
+                "vertice": [
+                    -0.22492499999999999,
+                    0.46199999999999997,
+                    -0.24262499999999998
+                ],
+                "manga": [
+                    -0.3,
+                    0.273,
+                    -0.345
+                ],
+                "eixo": [
+                    -0.3,
+                    0.21,
+                    -0.345
+                ],
+                "haste_superior": 0.12529144523869135,
+                "haste_inferior": 0.22767937159523252
+            },
+            "FR": {
+                "abracadeira": [
+                    0.1845,
+                    0.357,
+                    -0.1875
+                ],
+                "vertice": [
+                    0.22492499999999999,
+                    0.46199999999999997,
+                    -0.24262499999999998
+                ],
+                "manga": [
+                    0.3,
+                    0.273,
+                    -0.345
+                ],
+                "eixo": [
+                    0.3,
+                    0.21,
+                    -0.345
+                ],
+                "haste_superior": 0.12529144523869135,
+                "haste_inferior": 0.22767937159523252
+            },
+            "RL": {
+                "abracadeira": [
+                    -0.1845,
+                    0.357,
+                    0.1875
+                ],
+                "vertice": [
+                    -0.22492499999999999,
+                    0.46199999999999997,
+                    0.24262499999999998
+                ],
+                "manga": [
+                    -0.3,
+                    0.273,
+                    0.345
+                ],
+                "eixo": [
+                    -0.3,
+                    0.21,
+                    0.345
+                ],
+                "haste_superior": 0.12529144523869135,
+                "haste_inferior": 0.22767937159523252
+            },
+            "RR": {
+                "abracadeira": [
+                    0.1845,
+                    0.357,
+                    0.1875
+                ],
+                "vertice": [
+                    0.22492499999999999,
+                    0.46199999999999997,
+                    0.24262499999999998
+                ],
+                "manga": [
+                    0.3,
+                    0.273,
+                    0.345
+                ],
+                "eixo": [
+                    0.3,
+                    0.21,
+                    0.345
+                ],
+                "haste_superior": 0.12529144523869135,
+                "haste_inferior": 0.22767937159523252
+            }
+        },
+        "envelope": {
+            "largura_m": 0.664,
+            "comprimento_m": 1.1099999999999999,
+            "altura_m": 0.47,
+            "passa_em_porta": true,
+            "folga_na_porta_mm": 136.0,
+            "passa_em_corredor": true,
+            "raio_de_giro_m": 0.6671925196238451
+        },
+        "lista_de_corte": [
+            {
+                "peca": "Haste superior (ascendente)",
+                "qtd": 4,
+                "comprimento_mm": 185,
+                "angulo_deg": 56.9,
+                "obs": "abraçadeira da caixa → vértice do V"
+            },
+            {
+                "peca": "Haste inferior (descendente)",
+                "qtd": 4,
+                "comprimento_mm": 288,
+                "angulo_deg": 56.1,
+                "obs": "vértice do V → manga de esterçamento 4WS"
+            }
+        ]
     }
 };
 

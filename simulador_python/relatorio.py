@@ -18,6 +18,7 @@ import numpy as np
 from . import config as cfgmod
 from .benchmark import executar_tudo
 from .config import P as PARAMS
+from . import estrutura as estr
 from .kinematics import Cinematica4WS, classificar_siegwart
 from .powertrain import ModeloTermicoMotor, MotorCC, OrcamentoEnergia, PackBateria
 from .terramechanics import TerramecanicaWong
@@ -223,6 +224,25 @@ Manobra a 0,8 m/s: 4WS coordenado **{comp['potencia_4ws_w']:.1f} W** contra
 skid-steer **{comp['potencia_skid_w']:.1f} W** ({comp['economia_percentual']:.0f}% de economia).
 
 ![Manobra](b6_manobra.png)
+""")
+
+    # -- 5b. estrutura -------------------------------------------------------
+    env = estr.envelope()
+    linhas_corte = [[f"{i['qtd']}x", i["peca"], f"{i['comprimento_mm']} mm",
+                     f"{i['angulo_deg']:+.1f}°", i["obs"]] for i in estr.lista_de_corte()]
+    partes.append(f"""
+## 5b. Geometria estrutural e envelope
+
+```
+{estr.resumo()}
+```
+
+{_tabela(linhas_corte, ["Qtd.", "Peça", "Corte", "Ângulo", "Trecho"])}
+
+* Envelope: **{env['comprimento_m']*1000:.0f} × {env['largura_m']*1000:.0f} × {env['altura_m']*1000:.0f} mm**
+* Passa em porta de {PARAMS.ambiente.porta_estreita*1000:.0f} mm:
+  **{'sim' if env['passa_em_porta'] else 'NÃO'}** (folga {env['folga_na_porta_mm']:.0f} mm)
+* Raio de giro no próprio eixo: **{env['raio_de_giro_m']*1000:.0f} mm**
 """)
 
     # -- 6. estabilidade e limites -----------------------------------------

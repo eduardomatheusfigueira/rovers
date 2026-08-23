@@ -142,15 +142,14 @@ export class ModeloRover {
             const braco = new THREE.Group();
             braco.name = `braco_${id}`;
 
-            // Cotas relativas ao CG do veículo
+            // Cotas vindas de simulador_python/estrutura.py, via parametros.js:
+            // o modelo 3D não tem mais nenhuma cota de braço escrita à mão.
+            const g = PARAMETROS.estrutura.bracos[id];
+            const emCg = (v) => new THREE.Vector3(v[0], v[1] - V.altura_cg_chassi, v[2]);
             const yEixo = -OFFSET_CG;
-            const yFixacao = V.altura_fixacao_pendular - V.altura_cg_chassi;
-
-            const pAbraca = new THREE.Vector3(sx * 0.20, yFixacao, sz * 0.16);
-            const pVertice = new THREE.Vector3(sx * (Math.abs(p.x) * 0.72),
-                                               yFixacao + 0.10,
-                                               sz * (Math.abs(p.z) * 0.78));
-            const pManga = new THREE.Vector3(p.x, yEixo + 0.06, p.z);
+            const pAbraca = emCg(g.abracadeira);
+            const pVertice = emCg(g.vertice);
+            const pManga = emCg(g.manga);
 
             const abraca = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, 0.06), this.materiais.petg);
             abraca.position.copy(pAbraca);

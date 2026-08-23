@@ -1,6 +1,15 @@
 # 02. Protocolo de Testes Incrementais e Ciclo de Iterações
 ## Roteiro Experimental de Validação Física do Protótipo
 
+> [!IMPORTANT]
+> **Revisão R2 — expandido**
+> Os cinco níveis de ensaio continuam válidos. Foram acrescentados os ensaios de **caracterização** que o modelo de simulação precisa para ser validado (ENS-04, ENS-11, ENS-12, ENS-13) — sem eles, os parâmetros de suspensão são estimativas. Ver [Verificação e Validação](../03_Simulacao_e_Prototipacao_Digital/04_Verificacao_e_Validacao_do_Modelo.md).
+>
+> Parâmetros vigentes: [`00_Especificacao_Mestre/00_Parametros_Mestres.md`](../00_Especificacao_Mestre/00_Parametros_Mestres.md) ·
+> Achados: [`02_Auditoria_Tecnica.md`](../00_Especificacao_Mestre/02_Auditoria_Tecnica.md)
+
+---
+
 ---
 
 ## 1. Metodologia de Testes Incrementais (Fase 4)
