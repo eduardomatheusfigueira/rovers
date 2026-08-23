@@ -1,6 +1,15 @@
 # 04. Critérios de Sucesso, Métricas de Desempenho e Validação Final
 ## Definição da Missão de Homologação Executiva
 
+> [!IMPORTANT]
+> **Revisão R2 — expandido**
+> Os KPIs deste documento continuam válidos e foram desdobrados em 45 requisitos rastreáveis, cada um com método de verificação e artefato de evidência: [`01_Requisitos_e_Rastreabilidade.md`](../00_Especificacao_Mestre/01_Requisitos_e_Rastreabilidade.md).
+>
+> Parâmetros vigentes: [`00_Especificacao_Mestre/00_Parametros_Mestres.md`](../00_Especificacao_Mestre/00_Parametros_Mestres.md) ·
+> Achados: [`02_Auditoria_Tecnica.md`](../00_Especificacao_Mestre/02_Auditoria_Tecnica.md)
+
+---
+
 ---
 
 ## 1. O Critério Maior de Sucesso (Declaração de Conclusão)

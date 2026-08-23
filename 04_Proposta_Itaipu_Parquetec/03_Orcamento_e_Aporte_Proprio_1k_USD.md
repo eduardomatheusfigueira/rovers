@@ -17,32 +17,93 @@ graph TD
 
 ---
 
-## 2. Lista de Materiais Estimada (*Bill of Materials - BOM*)
+## 2. Lista de Materiais (BOM) — revisão R2
 
-Abaixo está o planejamento detalhado de compras considerando cotações médias de mercado internacional/nacional para peças de alta confiabilidade mecatrônica:
+> **O que mudou em relação a R1.** O redimensionamento da roda (Φ300 → Φ420 mm) e
+> da cadeia de tração (1:70 → 1:172) alterou motores, filamento e bateria. Foram
+> acrescentados itens que a análise de R2 tornou obrigatórios: **aro elástico**
+> (sem ele não há rolamento suave), **encoders no lado da roda** (a complacência do
+> C-STS impede medir a roda pelo motor) e **sensores de corrente e temperatura**
+> (a proteção I²t é o que impede queimar motor em escada).
 
-| Item | Descrição do Componente | Qtd. | Custo Unit. Est. (USD) | Custo Total Est. (USD) | Prioridade de Aquisição |
-| :--- | :--- | :---: | :---: | :---: | :---: |
-| **1** | Motorredutores DC 12V com redução metálica planetária e encoders (4WD) | 5 un. | $ 14,00 | $ 70,00 | Crítica (Tração) |
-| **2** | Servomotores digitais 25 kgf·cm com engrenagens metálicas (4WS) | 5 un. | $ 10,00 | $ 50,00 | Crítica (Direção) |
-| **3** | Módulos Drivers Ponte H BTS7960 43A de alta potência | 4 un. | $ 8,00 | $ 32,00 | Crítica (Potência) |
-| **4** | Bateria LiPo 3S 5000mAh 50C (ou LiFePO4 4S) de alta descarga | 2 un. | $ 45,00 | $ 90,00 | Crítica (Energia) |
-| **5** | Carregador Inteligente Microprocessado Balanceador (tipo IMAX B6) | 1 un. | $ 35,00 | $ 35,00 | Suporte (Energia) |
-| **6** | Transmissor Rádio Controle ExpressLRS (ELRS) 2.4GHz / 915MHz | 1 un. | $ 85,00 | $ 85,00 | Crítica (Controle) |
-| **7** | Receptor de Rádio ELRS Nano com telemetria | 2 un. | $ 15,00 | $ 30,00 | Crítica (Controle) |
-| **8** | Câmera FPV 1200TVL + Transmissor de Vídeo 5.8GHz 600mW + Antenas | 1 kit | $ 55,00 | $ 55,00 | Crítica (Visão Piloto) |
-| **9** | Monitor Receptor FPV 7 polegadas com bateria e receptor Diversity | 1 un. | $ 95,00 | $ 95,00 | Crítica (Visão Piloto) |
-| **10** | Microcontroladores ESP32-S3 DevKit com conector IPEX/antena externa | 3 un. | $ 7,00 | $ 21,00 | Lógica / Backup |
-| **11** | Carreteis de Filamento PETG 1.75mm (1 kg cada) para peças estruturais | 4 un. | $ 20,00 | $ 80,00 | Manufatura 3D |
-| **12** | Rolamentos de esferas miniatura (padrão 608ZZ / 688ZZ) | 16 un. | $ 1,00 | $ 16,00 | Mecânica |
-| **13** | Tubos de PVC de Água Fria 20mm/25mm (barras de 3m) + Conexões | 4 bar. | $ 4,00 | $ 16,00 | Estrutura |
-| **14** | Caixas Organizadoras Plásticas Transparentes 20L a 30L com tampa | 2 un. | $ 12,00 | $ 24,00 | Carga Útil |
-| **15** | Pacotes de Elásticos de Borracha Comuns de Escritório nº 18 (100 un.) | 5 pct. | $ 1,50 | $ 7,50 | Suspensão |
-| **16** | Parafusos, porcas parlock, arruelas, tiras velcro e conectores XT60 | Diversos | $ 35,00 | $ 35,00 | Fixação Elétrica |
-| **--** | **Reserva Técnica para Fretes, Taxas e Imprevistos Mecânicos** | -- | -- | **$ 258,50** | Margem de Segurança |
-| **TOTAL** | **Investimento Total Previsto (Aporte Próprio)** | -- | -- | **US$ 1.000,00** | -- |
+A lista está separada em três blocos porque **o risco de cada um é diferente**.
 
----
+### Bloco A — Crítico, sem substituto, precisa ser comprado
+
+| Item | Qtd. | Unit. | Total |
+| :--- | :---: | ---: | ---: |
+| Motorredutor 12 V, redução metálica **1:172**, com encoder | 5 un. | $ 22,00 | $ 110,00 |
+| Servomotor digital 25 kgf·cm, engrenagem metálica, curso ≥ 180° | 5 un. | $ 11,00 | $ 55,00 |
+| Driver ponte H BTS7960 (≥ 20 A/canal) | 4 un. | $ 8,00 | $ 32,00 |
+| Célula LiFePO4 26650 3 Ah **com descarga ≥ 5C** ⚠️ | 8 un. | $ 6,00 | $ 48,00 |
+| BMS 4S 30 A + suporte + fita de níquel | 1 kit | $ 18,00 | $ 18,00 |
+| Carregador balanceador compatível com LiFePO4 | 1 un. | $ 32,00 | $ 32,00 |
+| Filamento PETG 1 kg (rodas Φ420, cubos, mangas, juntas) | 5 un. | $ 20,00 | $ 100,00 |
+| Filamento TPU 95A 0,5 kg (aro elástico impresso) | 1 un. | $ 25,00 | $ 25,00 |
+| Câmara de ar de bicicleta 20" (aro elástico frugal, alternativa) | 4 un. | $ 3,00 | $ 12,00 |
+| Encoder magnético AS5600 + ímã diametral (lado da roda) | 4 un. | $ 3,00 | $ 12,00 |
+| Sensor de corrente por canal (INA226 ou ACS712) | 4 un. | $ 4,00 | $ 16,00 |
+| Termistor NTC 10k + chicote de sensor | 1 kit | $ 8,00 | $ 8,00 |
+| Presilha toggle over-center com trava secundária | 8 un. | $ 2,50 | $ 20,00 |
+| Espuma técnica de alta densidade (berço do notebook) | 1 un. | $ 12,00 | $ 12,00 |
+| **Subtotal do Bloco A** | | | **$ 500,00** |
+
+⚠️ **Verificar no datasheet antes de comprar:** a corrente de pico medida em
+simulação é de 27,7 A = **4,6C**. Célula LiFePO4 comum de 3 Ah costuma ser
+especificada para 2 a 3C contínuos — não serve.
+
+### Bloco B — Provavelmente disponível no almoxarifado do Parquetec
+
+Itens de uso geral, tipicamente já em estoque num parque tecnológico. **Triar
+antes de comprar** — o que existir no parque libera orçamento para a reserva.
+
+| Item | Qtd. | Unit. | Total se comprado |
+| :--- | :---: | ---: | ---: |
+| Microcontrolador ESP32-S3 DevKit | 3 un. | $ 7,00 | $ 21,00 |
+| IMU BNO055 (fusão em hardware) | 1 un. | $ 22,00 | $ 22,00 |
+| Rolamentos 608ZZ / 688ZZ | 16 un. | $ 1,00 | $ 16,00 |
+| Tubo de PVC 25 mm (barra 3 m) + conexões | 4 bar. | $ 4,00 | $ 16,00 |
+| Caixa organizadora 20 L com tampa | 2 un. | $ 12,00 | $ 24,00 |
+| Elásticos nº 18 (pacote com 100) | 5 pct. | $ 1,50 | $ 7,50 |
+| Parafusos M3/M4/M5, porcas parlock, XT60, cabo de silicone, velcro | — | $ 40,00 | $ 40,00 |
+| Dissipadores + ventoinhas 30 mm | 1 kit | $ 12,00 | $ 12,00 |
+| **Subtotal do Bloco B** | | | **$ 158,50** |
+
+### Bloco C — Teleoperação e vídeo (reaproveitável ou emprestado)
+
+| Item | Qtd. | Unit. | Total |
+| :--- | :---: | ---: | ---: |
+| Transmissor ExpressLRS 2.4 GHz / 915 MHz | 1 un. | $ 85,00 | $ 85,00 |
+| Receptor ELRS nano com telemetria | 2 un. | $ 15,00 | $ 30,00 |
+| Câmera FPV 1200 TVL + VTX 5.8 GHz + antenas | 1 kit | $ 55,00 | $ 55,00 |
+| Monitor FPV 7" com receptor diversity | 1 un. | $ 95,00 | $ 95,00 |
+| **Subtotal do Bloco C** | | | **$ 265,00** |
+
+### Consolidação e análise de risco orçamentário
+
+| Cenário | A | B | C | Subtotal | Reserva | Situação |
+| :--- | ---: | ---: | ---: | ---: | ---: | :--- |
+| **Pessimista** — nada disponível no parque | 500,00 | 158,50 | 265,00 | **923,50** | **$ 76,50 (8%)** | ⚠️ apertado |
+| **Provável** — Bloco B parcialmente disponível | 500,00 | 80,00 | 265,00 | 845,00 | $ 155,00 (18%) | aceitável |
+| **Favorável** — Bloco B no parque e rádio/FPV emprestados | 500,00 | 0,00 | 0,00 | 500,00 | $ 500,00 (100%) | confortável |
+
+> **Risco a declarar na proposta.** No cenário pessimista a reserva cai a **8%**,
+> insuficiente para frete internacional e tributos de importação, que no Brasil
+> podem chegar a 60% a 100% sobre eletrônicos. **O aporte de US$ 1.000,00 só é
+> suficiente se pelo menos o Bloco B vier do almoxarifado do parque.** Esta é uma
+> premissa da proposta, não um detalhe operacional — e é a razão pela qual a
+> triagem no almoxarifado (passo 1 do fluxo acima) precisa acontecer **antes** de
+> qualquer compra.
+
+**Mitigações previstas, em ordem de acionamento:**
+
+1. Priorizar fornecedores nacionais para o Bloco B e para consumíveis (PVC,
+   caixas, elásticos, parafusos, filamento) — evita frete e tributo de importação.
+2. Usar a alternativa frugal do aro elástico (câmara de ar de bicicleta, $12) em
+   vez do TPU impresso ($25), se o ensaio ENS-04 mostrar desempenho equivalente.
+3. Dispensar o monitor FPV de 7" ($95) usando óculos ou celular já disponíveis.
+4. Em último caso, reduzir de 5 para 4 as unidades de motor e servo, eliminando os
+   sobressalentes — com aumento do risco de parada em caso de queima.
 
 ## 3. Gestão e Transparência Financeira
 

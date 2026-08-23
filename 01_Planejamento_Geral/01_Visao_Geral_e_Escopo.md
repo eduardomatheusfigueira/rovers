@@ -1,6 +1,15 @@
 # 01. Visão Geral do Projeto, Escopo e Fundamentação Teórica
 ## Projeto Rover Frugal 4WD/4WS para Transporte de Cargas Leves
 
+> [!IMPORTANT]
+> **Revisão R2 — atualizado**
+> A caracterização cinemática foi corrigida: o rover tem δM = 3, mas **não é holonômico** (δm = 1, δs = 2) — ele precisa parar e reorientar as rodas para mudar de modo. Ver [A-05](../00_Especificacao_Mestre/02_Auditoria_Tecnica.md#a-05).
+>
+> Parâmetros vigentes: [`00_Especificacao_Mestre/00_Parametros_Mestres.md`](../00_Especificacao_Mestre/00_Parametros_Mestres.md) ·
+> Achados: [`02_Auditoria_Tecnica.md`](../00_Especificacao_Mestre/02_Auditoria_Tecnica.md)
+
+---
+
 ---
 
 ## 1. Justificativa e Filosofia da Inovação Frugal
@@ -14,7 +23,7 @@ graph TD
     subgraph Pilares da Inovação Frugal e Teoria Aplicada
         F1["<b>Simplicidade Mecânica</b><br>(Sclater & Chironis, 2001)<br>• Juntas split-clamp em PVC<br>• Presilhas rápidas toggle<br>• Complacência elástica passiva"]
         F2["<b>Dinâmica e Terramecânica</b><br>(J. Y. Wong, 2022)<br>• Transferência de carga em rampas/escadas<br>• Eliminação de arrasto lateral de direção<br>• Esforço trativo (Drawbar Pull)"]
-        F3["<b>Cinemática e Mobilidade</b><br>(Siegwart & Nourbakhsh, 2004)<br>• Manobrabilidade omnidirecional (δM = 3)<br>• ICR instantâneo sincronizado<br>• Polígono de estabilidade dinâmica"]
+        F3["<b>Cinemática e Mobilidade</b><br>(Siegwart & Nourbakhsh, 2004)<br>• Manobrabilidade δM = 3 (Two-Steer)<br>• ICR instantâneo sincronizado<br>• Polígono de estabilidade dinâmica"]
     end
 
     F1 & F2 & F3 --> UGV["<b>Rover Frugal 4WD/4WS</b><br>Baixo custo, alta manobrabilidade e subida de escadas"]
@@ -37,7 +46,7 @@ graph TD
 | **Compartimento de Carga** | Caixa organizadora plástica convencional (polipropileno) | Recipiente leve, estanque, barato e padronizado para abrigar a carga útil (ex.: notebook, cabos, periféricos). |
 | **Fixação e Modularidade** | Encaixes destacáveis tipo *Toggle Clamps* no terço superior da caixa | Os módulos de locomoção e braços podem ser desmontados e reinstalados em uma nova caixa em menos de 5 minutos (*Sclater & Chironis, 2001*). |
 | **Sistema de Tração** | 4WD (4 Motores independentes, 1 por roda) | Garante torque dedicado em cada ponto de contato. Essencial segundo *Wong (2022)*, pois a transferência de carga em escadas descarrega as rodas dianteiras e sobrecarrega as traseiras. |
-| **Sistema de Direção** | 4WS (4 Motores / Servos de esterçamento independente) | Proporciona Grau de Manobrabilidade $\delta_M = 3$ (*Siegwart & Nourbakhsh, 2004*), viabilizando manobras omnidirecionais (giro no próprio eixo, modo caranguejo e Ackermann duplo) sem o consumo energético excessivo de *skid-steering*. |
+| **Sistema de Direção** | 4WS (4 servos de esterçamento independente) | Grau de Manobrabilidade $\delta_M = 3$ na categoria *Two-Steer* de *Siegwart & Nourbakhsh (2004)*: $\delta_m = 1$, $\delta_s = 2$. Viabiliza giro no próprio eixo, modo caranguejo e Ackermann duplo sem o arrasto lateral do *skid-steering* (2,1 W contra 10,5 W em manobra). **Não é holonômico**: mudar de modo exige parar e reorientar as rodas (0,10 a 0,56 s). |
 | **Unidade de Controle** | ESP32 (Dual Core 240MHz) com FreeRTOS | Gestão em tempo real de 8 canais PWM independentes (4 tração + 4 direção), fusão sensorial IMU/Odometria e telemetria sem fio de baixa latência. |
 
 ---

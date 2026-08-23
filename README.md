@@ -1,145 +1,243 @@
-# Projeto Rover Modular de Baixo Custo (Frugal UGV)
-## Repositório Mestre de Planejamento, Engenharia, Terramecânica e Gestão
+# Rover Frugal 4WD/4WS
+## UGV de baixo custo para logística predial — engenharia, simulação e gêmeo digital
 
-> **Missão do Projeto**: Desenvolver um Veículo Terrestre Não Tripulado (UGV / Rover) de baixo custo, simples construção e alta manobrabilidade para transporte de pequenas cargas (ex.: notebooks e insumos de TI), fundamentado nos princípios da inovação frugal, componentes comerciais de prateleira (COTS), manufatura aditiva 3D, elementos estruturais acessíveis (tubos de PVC e elastômeros) e sólida teoria de engenharia veicular e robótica móvel.
+[![testes](https://img.shields.io/badge/testes-73%20passando-brightgreen)](testes/)
+[![revisão](https://img.shields.io/badge/parâmetros-R2-blue)](00_Especificacao_Mestre/parametros_mestres.yaml)
+[![licença](https://img.shields.io/badge/licença-a%20definir-lightgrey)](#licença)
+
+> **Missão.** Desenvolver um Veículo Terrestre Não Tripulado capaz de buscar um
+> notebook em qualquer ponto do Itaipu Parquetec e entregá-lo no departamento de
+> T.I., **subindo escadas**, operado remotamente por um piloto — construído com
+> tubos de PVC, impressão 3D, elásticos de escritório e eletrônica de prateleira.
+
+![Protótipo do Rover Frugal](Imagens/rover_prototipo_pronto.jpg)
 
 ---
 
-## 📸 Conceito Visual do Protótipo Montado
+## Onde começar
 
-![Protótipo do Rover Frugal](file:///d:/Downloads/Rascunho%20Rover/Imagens/rover_prototipo_pronto.jpg)
-*(Visualização conceitual do UGV: chassi em PVC em V invertido, juntas 3D split-clamp, caixa organizadora pendular com notebook, rodas curved spokes 3D e suspensão por elásticos comuns)*
+| Se você quer... | Vá para |
+| :--- | :--- |
+| entender **as decisões de engenharia e por que mudaram** | [Auditoria Técnica R1→R2](00_Especificacao_Mestre/02_Auditoria_Tecnica.md) |
+| ver **todos os números do projeto num lugar só** | [Parâmetros Mestres](00_Especificacao_Mestre/00_Parametros_Mestres.md) |
+| saber **o que ainda falta provar** | [Requisitos e Rastreabilidade](00_Especificacao_Mestre/01_Requisitos_e_Rastreabilidade.md) |
+| **pilotar** o rover num percurso simulado | [Gêmeo digital 3D](#gêmeo-digital-3d) |
+| **rodar as contas** você mesmo | [Simulador Python](#simulador-físico-em-python) |
+| avaliar a **proposta institucional** | [Pitch ao Parquetec](04_Proposta_Itaipu_Parquetec/01_Pitch_e_Plano_de_Apoio.md) |
 
 ---
 
-## 📚 Base Teórica e Tratados Científicos de Referência
+## Estado do projeto
 
-O projeto integra formalmente os conceitos fundamentais de três obras clássicas mundiais e artigos de ponta em robótica e terramecânica presentes em [`Materiais de apoio`](file:///d:/Downloads/Rascunho%20Rover/Materiais%20de%20apoio):
+O projeto está na **Fase 2 — engenharia de detalhe e simulação**. Nenhuma peça
+foi fabricada ainda. Isso importa para ler o resto do repositório:
+
+* ✅ **18 requisitos** verificados por análise ou simulação automatizada;
+* 🟡 **13 requisitos** verificados em simulação, aguardando ensaio físico;
+* ⬜ **14 requisitos** dependem de hardware montado.
+
+Todas as conclusões numéricas aqui são **previsões de modelo**, com domínio de
+validade declarado em [Verificação e Validação](03_Simulacao_e_Prototipacao_Digital/04_Verificacao_e_Validacao_do_Modelo.md).
+
+---
+
+## O que a revisão R2 mudou no projeto
+
+A engenharia foi reconstruída sobre uma fonte única de parâmetros e sobre modelos
+sem fatores de ajuste. Cinco achados alteraram o projeto físico:
+
+| Achado | R1 | R2 |
+| :--- | :--- | :--- |
+| **Diâmetro da roda** — a roda precisa alcançar o nariz do degrau seguinte, não apenas rolar | Φ300 mm (critério de rolamento em plano) | **Φ420 mm** por marcha síncrona e robustez de fase |
+| **Aro elástico** — sem ele o cubo cai 105 mm por raio em piso plano | "opcional" | **item crítico** |
+| **Curso da suspensão** — dimensionado pela energia da queda de cubo | 35 mm (4,2 g na carga) | **90 mm** (0,8 g) |
+| **Rigidez do C-STS** — não se copia rigidez entre escalas | 0,55 N·m/rad (do artigo → 566° de deflexão) | **10,31 N·m/rad** por semelhança dimensional |
+| **Classificação cinemática** | δm=2, δs=4, δM=3 (soma 6) | **δm=1, δs=2, δM=3** — não holonômico |
+
+Mais dois limites operacionais que ninguém tinha visto:
+
+* o gargalo da escada é **térmico**, não energético: 27 s de subida contínua antes
+  do limite do enrolamento — a missão inteira usa só 15% da bateria;
+* o rover **não sobe escada molhada**: exige μ ≥ 0,72 e o concreto úmido dá 0,55.
+
+Cada achado está documentado com evidência reproduzível na
+[Auditoria Técnica](00_Especificacao_Mestre/02_Auditoria_Tecnica.md).
+
+---
+
+## A ideia central, em uma equação
+
+Uma roda de raios não rola sobre a escada — ela **salta de nariz em nariz**. Para
+que o raio seguinte alcance o degrau seguinte:
+
+$$\underbrace{\sqrt{E^2+P^2}}_{\text{passo do degrau}} \;\le\; 2\,r_{max}\sin\!\left(\frac{\pi}{N}\right)$$
+
+Para o degrau de referência (E = 170 mm, P = 300 mm) e N = 3 raios:
+**r_max ≥ 199 mm**. A roda de Φ300 mm alcança 260 mm contra 345 mm exigidos — e
+por isso trava na face do espelho. A dedução completa está em
+[Síntese da Roda](02_Engenharia_e_Arquitetura/06_Sintese_da_Roda_e_Geometria_de_Escalada.md).
+
+![Comparação das duas rodas](Imagens/simulacao/b1_dimensionamento_roda.png)
+
+---
+
+## Como o repositório se sustenta
+
+**Nenhum número de engenharia é digitado duas vezes.** Tudo vive em
+[`parametros_mestres.yaml`](00_Especificacao_Mestre/parametros_mestres.yaml):
+
+```
+00_Especificacao_Mestre/parametros_mestres.yaml   ← fonte única de verdade
+        │
+        ├─→ simulador_python/config.py ────────── simulador, benchmarks, relatório
+        ├─→ prototipo_3d/parametros.js ────────── gêmeo digital 3D
+        └─→ 00_Parametros_Mestres.md ──────────── tabela da documentação
+                                                  (os dois últimos são gerados)
+```
+
+Mudar o diâmetro da roda no YAML muda o simulador, o modelo 3D e a documentação
+ao mesmo tempo. Testes automatizados verificam a coerência a cada alteração.
+
+---
+
+## Simulador físico em Python
+
+```bash
+pip install -r requirements.txt
+
+python3 -m simulador_python.main --parametros   # configuração resolvida
+python3 -m simulador_python.main --marcha       # marcha na escada de referência
+python3 -m simulador_python.main --sintese      # varredura do espaço de projeto
+python3 -m simulador_python.main --benchmark    # 6 benchmarks + figuras
+python3 -m simulador_python.main --relatorio    # Relatório de Engenharia completo
+python3 -m pytest testes/ -q                    # 73 verificações
+```
+
+| Módulo | O que resolve |
+| :--- | :--- |
+| [`geometria_escada.py`](simulador_python/geometria_escada.py) | marcha da roda de raios por **eventos de contato** — o núcleo do projeto |
+| [`csts.py`](simulador_python/csts.py) | dimensionamento da mola espiral por semelhança dimensional e modelo de impacto |
+| [`kinematics.py`](simulador_python/kinematics.py) | cinemática 4WS e classificação de Siegwart calculada por posto de matriz |
+| [`terramechanics.py`](simulador_python/terramechanics.py) | cargas normais, estabilidade e comparação com skid-steer (Wong) |
+| [`powertrain.py`](simulador_python/powertrain.py) | motor CC, redutor, bateria, modelo térmico e orçamento de missão |
+| [`multibody_dynamics.py`](simulador_python/multibody_dynamics.py) | dinâmica sagital com a carga a bordo, alimentada pela marcha real |
+| [`relatorio.py`](simulador_python/relatorio.py) | gera o Relatório de Engenharia — nenhum número é digitado à mão |
+
+---
+
+## Gêmeo digital 3D
+
+Percurso completo de homologação — calçada, meio-fio, rampa, escadaria de 8
+degraus, porta estreita e sala da T.I. — com física real de contato dos raios
+curvos, C-STS integrada, bateria, modelo térmico e telemetria exportável.
+
+```bash
+# opção 1: arquivo único, duplo clique, sem servidor e sem internet
+prototipo_3d_standalone.html
+
+# opção 2: versão modular (recomendada para desenvolvimento)
+python3 -m http.server 8000
+# abrir http://localhost:8000/prototipo_3d/
+```
+
+O botão **"Comparar com a roda Φ300 (R1)"** reconstrói o rover com a geometria
+original e reproduz a falha do achado A-01 na prática. As chaves de suspensão
+ligam e desligam aro, elásticos e C-STS para ver o efeito de cada estágio na
+aceleração sentida pelo notebook.
+
+> Three.js r160 está versionado em `prototipo_3d/vendor/` (licença MIT): o
+> protótipo **funciona offline**, sem depender de CDN.
+
+---
+
+## Mapa da documentação
 
 ```mermaid
 graph TD
-    subgraph Tratados de Engenharia e Robótica
-        REF1["<b>Siegwart & Nourbakhsh (2004)</b><br><i>Intro to Autonomous Mobile Robots</i><br>• Cinemática 4WD/4WS (δM = 3, Holonomia)<br>• Margem de Tombamento e Estabilidade<br>• Odometria e Propagação de Erro"]
-        REF2["<b>J. Y. Wong (2022)</b><br><i>Theory of Ground Vehicles</i><br>• Terramecânica e Aderência Solo-Roda<br>• Transferência de Carga Dinâmica em Escadas<br>• Eficiência 4WS vs Skid-Steer"]
-        REF3["<b>Sclater & Chironis (2001)</b><br><i>Mechanisms Sourcebook</i><br>• Abraçadeiras Split-Clamp para Tubos<br>• Presilhas Rápidas Toggle Over-Center<br>• Mecanismos Elásticos e Batentes de Fim-de-Curso"]
-        REF4["<b>Jeong & Kim (2025) & PMBOK 7</b><br>• Suspensão Complacente Torsional (C-STS)<br>• Rodas Curved Spokes para Escadas<br>• 12 Princípios e 8 Domínios de Valor"]
-    end
+    M["00. Especificação Mestre<br/><i>fonte única de verdade</i>"]
+    M --> M1["Parâmetros Mestres<br/><i>gerado</i>"]
+    M --> M2["Requisitos e Rastreabilidade"]
+    M --> M3["Auditoria Técnica R1→R2"]
 
-    REF1 & REF2 & REF3 & REF4 --> CORE["<b>ROVER FRUGAL 4WD/4WS</b><br>Arquitetura Mecânica, Dinâmica e Operacional"]
+    P1["01. Planejamento Geral"] --> P1a["Escopo · Fases · PMBOK 7 · Critérios"]
+    P2["02. Engenharia e Arquitetura"] --> P2a["Mecânica · Rodas · 4WD/4WS · Eletrônica"]
+    P2 --> P2b["<b>06. Síntese da Roda</b><br/>07. Tração e Térmica<br/>08. Firmware<br/>09. FMEA"]
+    P3["03. Simulação"] --> P3a["CAD · Dinâmica · Gêmeo Digital"]
+    P3 --> P3b["<b>04. Verificação e Validação</b>"]
+    P4["04. Proposta Parquetec"] --> P4a["Pitch · Equipe · Orçamento"]
+    P5["05. Execução e Testes"] --> P5a["Montagem · Ensaios · Missão"]
+    P6["06. Roadmap Futuro"] --> P6a["Fase A longo alcance · Fase B uso dual"]
+
+    M --> P1 & P2 & P3 & P4 & P5 & P6
 ```
 
+### Índice
+
+**[00. Especificação Mestre](00_Especificacao_Mestre/)** — fonte única de verdade
+* [`parametros_mestres.yaml`](00_Especificacao_Mestre/parametros_mestres.yaml) — todos os números do projeto
+* [00. Parâmetros Mestres](00_Especificacao_Mestre/00_Parametros_Mestres.md) *(gerado)* — tabela e verificações de coerência
+* [01. Requisitos e Rastreabilidade](00_Especificacao_Mestre/01_Requisitos_e_Rastreabilidade.md) — 45 requisitos com método de verificação
+* [02. Auditoria Técnica](00_Especificacao_Mestre/02_Auditoria_Tecnica.md) — 20 achados de R1 com evidência e resolução
+
+**[01. Planejamento Geral](01_Planejamento_Geral/)**
+* [01. Visão Geral e Escopo](01_Planejamento_Geral/01_Visao_Geral_e_Escopo.md) · [02. Fases e Cronograma](01_Planejamento_Geral/02_Estrutura_Fases_e_Cronograma.md) · [03. Gestão e PMBOK 7](01_Planejamento_Geral/03_Gestao_e_PMBOK7.md) · [04. Critérios de Sucesso](01_Planejamento_Geral/04_Criterios_de_Sucesso_e_Validacao.md)
+
+**[02. Engenharia e Arquitetura](02_Engenharia_e_Arquitetura/)**
+* [01. Arquitetura Mecânica](02_Engenharia_e_Arquitetura/01_Arquitetura_Mecanica_e_Geometria.md) · [02. Rodas e Suspensão](02_Engenharia_e_Arquitetura/02_Rodas_Curved_Spokes_e_Suspensao.md) · [03. Tração 4WD e Direção 4WS](02_Engenharia_e_Arquitetura/03_Tracao_4WD_e_Direcao_4WS.md) · [04. Eletrônica e Potência](02_Engenharia_e_Arquitetura/04_Eletronica_Controle_e_Potencia.md) · [05. Blondel e Colisão](02_Engenharia_e_Arquitetura/05_Dimensionamento_Blondel_e_Dinamica_Colisao.md)
+* **[06. Síntese da Roda e Geometria de Escalada](02_Engenharia_e_Arquitetura/06_Sintese_da_Roda_e_Geometria_de_Escalada.md)** — documento central de R2
+* **[07. Tração, Energia e Térmica](02_Engenharia_e_Arquitetura/07_Orcamento_de_Tracao_Energia_e_Termica.md)**
+* **[08. Firmware e Segurança Funcional](02_Engenharia_e_Arquitetura/08_Arquitetura_de_Firmware_e_Seguranca_Funcional.md)**
+* **[09. FMEA](02_Engenharia_e_Arquitetura/09_FMEA_e_Analise_de_Falhas.md)**
+
+**[03. Simulação e Prototipação Digital](03_Simulacao_e_Prototipacao_Digital/)**
+* [01. Modelagem CAD 3D](03_Simulacao_e_Prototipacao_Digital/01_Plano_de_Modelagem_CAD_3D.md) · [02. Simulação Dinâmica](03_Simulacao_e_Prototipacao_Digital/02_Simulacao_Dinamica_e_Controle.md) · [03. Gêmeo Digital](03_Simulacao_e_Prototipacao_Digital/03_Ambiente_Virtual_e_Digital_Twin.md)
+* **[04. Verificação e Validação do Modelo](03_Simulacao_e_Prototipacao_Digital/04_Verificacao_e_Validacao_do_Modelo.md)**
+
+**[04. Proposta Itaipu Parquetec](04_Proposta_Itaipu_Parquetec/)**
+* [01. Pitch e Plano de Apoio](04_Proposta_Itaipu_Parquetec/01_Pitch_e_Plano_de_Apoio.md) · [02. Equipe e Infraestrutura](04_Proposta_Itaipu_Parquetec/02_Alocacao_Equipe_e_Infraestrutura.md) · [03. Orçamento e Aporte](04_Proposta_Itaipu_Parquetec/03_Orcamento_e_Aporte_Proprio_1k_USD.md)
+
+**[05. Execução, Testes e Operação](05_Execucao_Testes_e_Operacao/)**
+* [01. Roteiro de Montagem](05_Execucao_Testes_e_Operacao/01_Roteiro_de_Montagem_e_Modularidade.md) · [02. Protocolo de Testes](05_Execucao_Testes_e_Operacao/02_Protocolo_de_Testes_e_Iteracoes.md) · [03. Missão de Homologação](05_Execucao_Testes_e_Operacao/03_Missao_Operacional_Parquetec_TI.md)
+
+**[06. Roadmap Futuro](06_Roadmap_Futuro_Fases_Pos_Sucesso/)**
+* [01. Fase A — Longo Alcance](06_Roadmap_Futuro_Fases_Pos_Sucesso/01_Fase_A_Extensao_Distancias_e_Ambientes_Reais.md) · [02. Fase B — Uso Dual e Fibra Óptica](06_Roadmap_Futuro_Fases_Pos_Sucesso/02_Fase_B_Uso_Dual_e_Controle_Fibra_Optica.md)
+
 ---
 
-## 🧭 Mapa de Navegação da Documentação
+## Base teórica
 
-A estrutura documental do projeto está organizada em 6 diretórios temáticos de engenharia e gestão:
+| Obra | O que este projeto usa |
+| :--- | :--- |
+| **Siegwart & Nourbakhsh (2004)**, *Introduction to Autonomous Mobile Robots* | restrições de rolamento e deslizamento, grau de manobrabilidade (Tabela 3.1), odometria, margem de estabilidade |
+| **J. Y. Wong (2022)**, *Theory of Ground Vehicles* | transferência de carga em rampa, esforço trativo, resistência ao rolamento, momento resistente de derrapagem |
+| **Sclater & Chironis (2001)**, *Mechanisms and Mechanical Devices Sourcebook* | abraçadeiras bipartidas, presilhas toggle over-center, tensores elásticos com batente |
+| **Jeong & Kim (2025)**, *Appl. Sci.* 15, 5985 | roda de raios curvos, suspensão complacente torsional C-STS, fator de correção FDM |
+| **Blondel (1675)** e **ABNT NBR 9050** | 2E + P = 63 a 65 cm — a geometria de escada que define o projeto da roda |
+| **PMBOK 7ª edição** | princípios de entrega de valor e domínios de desempenho |
 
-```mermaid
-graph TD
-    Root[Repositório Rover] --> P1[01. Planejamento Geral]
-    Root --> P2[02. Engenharia e Arquitetura]
-    Root --> P3[03. Simulação e Prototipação Digital]
-    Root --> P4[04. Proposta Itaipu Parquetec]
-    Root --> P5[05. Execução, Testes e Operação]
-    Root --> P6[06. Roadmap Futuro Pós-Sucesso]
-    Root --> P7[Materiais de Apoio]
+Os originais estão em [`Materiais de apoio`](<Materiais de apoio>).
 
-    P1 --> P1_1[Visão Geral e Escopo]
-    P1 --> P1_2[Fases e Cronograma]
-    P1 --> P1_3[Gestão e PMBOK 7]
-    P1 --> P1_4[Critérios de Sucesso]
+---
 
-    P2 --> P2_1[Mecânica, Geometria e Terramecânica]
-    P2 --> P2_2[Rodas Curved Spokes e Suspensão Elástica]
-    P2 --> P2_3[Cinemática 4WD/4WS e ICR]
-    P2 --> P2_4[Eletrônica, Controle e Potência]
+## Ferramentas de manutenção do repositório
 
-    P3 --> P3_1[Modelagem CAD 3D e Clamps]
-    P3 --> P3_2[Simulação Dinâmica e Física]
-    P3 --> P3_3[Gêmeo Digital e Cenário Parquetec]
-
-    P4 --> P4_1[Pitch Executivo e Proposta]
-    P4 --> P4_2[Alocação de Equipe e Infraestrutura]
-    P4 --> P4_3[Orçamento e Aporte Próprio $1k USD]
-
-    P5 --> P5_1[Roteiro de Montagem e Presilhas Rápidas]
-    P5 --> P5_2[Protocolo de Testes e Iterações]
-    P5 --> P5_3[Missão Operacional Entrega TI]
-
-    P6 --> P6_1[Fase A: Extensão de Distâncias]
-    P6 --> P6_2[Fase B: Uso Dual e Fibra Óptica]
+```bash
+python3 ferramentas/gerar_parametros_js.py   # YAML → prototipo_3d/parametros.js
+python3 ferramentas/gerar_documentacao.py    # YAML → 00_Parametros_Mestres.md
+python3 ferramentas/gerar_standalone.py      # prototipo_3d/ → HTML único offline
 ```
 
----
-
-## 📁 Índice Detalhado de Documentos
-
-### 📂 [01_Planejamento_Geral](file:///d:/Downloads/Rascunho%20Rover/01_Planejamento_Geral/)
-* [01_Visao_Geral_e_Escopo.md](file:///d:/Downloads/Rascunho%20Rover/01_Planejamento_Geral/01_Visao_Geral_e_Escopo.md) — Filosofia da inovação frugal, limites do projeto, premissas de terramecânica e cinemática veicular.
-* [02_Estrutura_Fases_e_Cronograma.md](file:///d:/Downloads/Rascunho%20Rover/01_Planejamento_Geral/02_Estrutura_Fases_e_Cronograma.md) — Detalhamento das 7 fases do ciclo de vida, marcos (milestones) e WBS/EAP.
-* [03_Gestao_e_PMBOK7.md](file:///d:/Downloads/Rascunho%20Rover/01_Planejamento_Geral/03_Gestao_e_PMBOK7.md) — Aplicação dos 12 princípios e 8 domínios de desempenho do PMBOK 7ª Ed., matriz de riscos mecatrônicos.
-* [04_Criterios_de_Sucesso_e_Validacao.md](file:///d:/Downloads/Rascunho%20Rover/01_Planejamento_Geral/04_Criterios_de_Sucesso_e_Validacao.md) — Definição do teste de sucesso definitivo (buscar notebook no Parquetec e entregar na TI) e métricas de desempenho.
-
-### 📂 [02_Engenharia_e_Arquitetura](file:///d:/Downloads/Rascunho%20Rover/02_Engenharia_e_Arquitetura/)
-* [01_Arquitetura_Mecanica_e_Geometria.md](file:///d:/Downloads/Rascunho%20Rover/02_Engenharia_e_Arquitetura/01_Arquitetura_Mecanica_e_Geometria.md) — Configuração em X radial, braços em V invertido, fixação pendular no terço superior da caixa, equações de transferência de carga (Wong) e estabilidade de tombamento (Siegwart).
-* [02_Rodas_Curved_Spokes_e_Suspensao.md](file:///d:/Downloads/Rascunho%20Rover/02_Engenharia_e_Arquitetura/02_Rodas_Curved_Spokes_e_Suspensao.md) — Mecânica das rodas de raios curvos, suspensão complacente por elásticos de escritório (teoria C-STS Jeong & Kim e Sclater & Chironis), amortecimento histerético e batentes de sobrecurso.
-* [03_Tracao_4WD_e_Direcao_4WS.md](file:///d:/Downloads/Rascunho%20Rover/02_Engenharia_e_Arquitetura/03_Tracao_4WD_e_Direcao_4WS.md) — Matriz cinemática completa, manobrabilidade $\delta_M = 3$ (Siegwart), cálculo do Centro Instantâneo de Rotação (ICR), modos Ackermann duplo, Caranguejo e Spin, e comparação de consumo com Skid-Steer (Wong).
-* [04_Eletronica_Controle_e_Potencia.md](file:///d:/Downloads/Rascunho%20Rover/02_Engenharia_e_Arquitetura/04_Eletronica_Controle_e_Potencia.md) — Dimensionamento elétrico, trade-off ESP32 vs RPi, drivers de potência MOSFET, odometria e fusão sensorial IMU, e telemetria de vídeo sem latência.
-* [05_Dimensionamento_Blondel_e_Dinamica_Colisao.md](file:///d:/Downloads/Rascunho%20Rover/02_Engenharia_e_Arquitetura/05_Dimensionamento_Blondel_e_Dinamica_Colisao.md) — Aplicação da Lei de Blondel ($2E + P = 64\text{ cm}$), dimensionamento analítico das rodas ($\Phi = 300\text{ mm}$, $r_{max} = 150\text{ mm}$), modelo de colisão multicorpo das 4 rodas independentes e transferência dinâmica de cargas normais.
-
-### 📂 [03_Simulacao_e_Prototipacao_Digital](file:///d:/Downloads/Rascunho%20Rover/03_Simulacao_e_Prototipacao_Digital/)
-* [01_Plano_de_Modelagem_CAD_3D.md](file:///d:/Downloads/Rascunho%20Rover/03_Simulacao_e_Prototipacao_Digital/01_Plano_de_Modelagem_CAD_3D.md) — Modelagem de abraçadeiras *split-clamp* (Sclater), juntas de PVC, parâmetros de impressão 3D (PETG/PLA) e presilhas rápidas.
-* [02_Simulacao_Dinamica_e_Controle.md](file:///d:/Downloads/Rascunho%20Rover/03_Simulacao_e_Prototipacao_Digital/02_Simulacao_Dinamica_e_Controle.md) — Modelagem multicorpo (URDF/SDF), simulação de transposição de degraus, dinâmica da suspensão elastomérica e equações de tração em rampa.
-* [03_Ambiente_Virtual_e_Digital_Twin.md](file:///d:/Downloads/Rascunho%20Rover/03_Simulacao_e_Prototipacao_Digital/03_Ambiente_Virtual_e_Digital_Twin.md) — Criação do cenário virtual do Itaipu Parquetec e cockpit de pilotagem com FPV simulado.
-
-### 📂 [04_Proposta_Itaipu_Parquetec](file:///d:/Downloads/Rascunho%20Rover/04_Proposta_Itaipu_Parquetec/)
-* [01_Pitch_e_Plano_de_Apoio.md](file:///d:/Downloads/Rascunho%20Rover/04_Proposta_Itaipu_Parquetec/01_Pitch_e_Plano_de_Apoio.md) — Proposta executiva de parceria institucional para apresentação à diretoria do parque tecnológico.
-* [02_Alocacao_Equipe_e_Infraestrutura.md](file:///d:/Downloads/Rascunho%20Rover/04_Proposta_Itaipu_Parquetec/02_Alocacao_Equipe_e_Infraestrutura.md) — Especificação dos papéis solicitados (1 Hardware, 1 Software, 1 Bolsista) e uso de laboratórios/impressoras 3D.
-* [03_Orcamento_e_Aporte_Proprio_1k_USD.md](file:///d:/Downloads/Rascunho%20Rover/04_Proposta_Itaipu_Parquetec/03_Orcamento_e_Aporte_Proprio_1k_USD.md) — Destinação dos US$ 1.000,00 de aporte próprio para aquisição exclusiva de insumos críticos não disponíveis no parque.
-
-### 📂 [05_Execucao_Testes_e_Operacao](file:///d:/Downloads/Rascunho%20Rover/05_Execucao_Testes_e_Operacao/)
-* [01_Roteiro_de_Montagem_e_Modularidade.md](file:///d:/Downloads/Rascunho%20Rover/05_Execucao_Testes_e_Operacao/01_Roteiro_de_Montagem_e_Modularidade.md) — Processo de montagem DIY/Frugal, fixação por presilhas *toggle over-center* na caixa organizadora e desmontabilidade em $< 5$ minutos.
-* [02_Protocolo_de_Testes_e_Iteracoes.md](file:///d:/Downloads/Rascunho%20Rover/05_Execucao_Testes_e_Operacao/02_Protocolo_de_Testes_e_Iteracoes.md) — Roteiros de testes incrementais: bancada, tração em rampa, transposição de degraus e durabilidade elástica.
-* [03_Missao_Operacional_Parquetec_TI.md](file:///d:/Downloads/Rascunho%20Rover/05_Execucao_Testes_e_Operacao/03_Missao_Operacional_Parquetec_TI.md) — Plano de execução da missão de homologação: rota no parque, coleta remota do notebook e entrega na TI.
-
-### 📂 [06_Roadmap_Futuro_Fases_Pos_Sucesso](file:///d:/Downloads/Rascunho%20Rover/06_Roadmap_Futuro_Fases_Pos_Sucesso/)
-* [01_Fase_A_Extensao_Distancias_e_Ambientes_Reais.md](file:///d:/Downloads/Rascunho%20Rover/06_Roadmap_Futuro_Fases_Pos_Sucesso/01_Fase_A_Extensao_Distancias_e_Ambientes_Reais.md) — Planejamento de longo alcance: baterias de alta densidade (21700), telemetria 4G/5G celular, proteção climática IP54/IP65.
-* [02_Fase_B_Uso_Dual_e_Controle_Fibra_Optica.md](file:///d:/Downloads/Rascunho%20Rover/06_Roadmap_Futuro_Fases_Pos_Sucesso/02_Fase_B_Uso_Dual_e_Controle_Fibra_Optica.md) — Adaptação tática e uso dual em defesa: carretel de microfibra óptica descartável de 1 km a 5 km, imunidade total a guerra eletrônica (EW / Jamming) e transmissão de vídeo HD sem latência.
+Rode os três sempre que alterar `parametros_mestres.yaml`.
 
 ---
 
-## 🔬 Síntese do Embasamento Teórico Integrado
-1. **Siegwart & Nourbakhsh (2004)**: Grau de mobilidade $\delta_m = 2$, grau de dirigibilidade $\delta_s = 4$, grau de manobrabilidade $\delta_M = 3$ (capacidade de locomoção omnidirecional no plano com rodas convencionais/curvas orientáveis).
-2. **J. Y. Wong (2022)**: Formulação rigorosa da transferência de carga dinâmica ($W_f, W_r$), determinação do esforço trativo (*Drawbar Pull*), resistência ao rolamento em degraus e minimização de potência eliminando o arrasto lateral de skid-steering.
-3. **Sclater & Chironis (2001)**: Soluções mecânicas clássicas para acoplamento rápido (grampos articulados *toggle*), abraçadeiras bipartidas (*split-clamps*) para tubulação sem fragilização do PVC e tensores elásticos com batentes mecânicos.
-4. **Jeong & Kim (2025)**: Eliminação do choque de descontinuidade do raio de curvatura em rodas *curved spokes* através de suspensão complacente elastomérica (*C-STS*).
-5. **Cálculo de Blondel (1675) & NBR 9050**: Dimensionamento das rodas de 3 raios ($r_{max} = 150\text{ mm}$, $\Phi = 300\text{ mm}$) para transposição de degraus padrão ($E = 17\text{ cm}$, $P = 30\text{ cm}$, $2E + P = 64\text{ cm}$).
+## Licença
 
----
+**Ainda não definida.** O projeto declara intenção de ser aberto (Open Hardware /
+Open Source) em `01_Planejamento_Geral/02`, mas a escolha da licença é decisão do
+proponente e precisa ser combinada com o Itaipu Parquetec antes da publicação dos
+CADs. Sugestão para avaliação: **CERN-OHL-S v2** para o hardware e **Apache-2.0**
+ou **MIT** para o firmware e o simulador.
 
-## 🎮 Protótipo e Simulador 3D Interativo (Three.js)
-
-O repositório inclui um simulador 3D completo com **detecção de colisão independente nas 4 rodas**, física de transposição de escadas de Blondel, telemetria em tempo real, horizonte artificial IMU e comutação de modos 4WS:
-
-* ⚡ **Inicializador Direto no Windows**: Duplo clique em [`iniciar_simulador_3d.bat`](file:///d:/Downloads/Rascunho%20Rover/iniciar_simulador_3d.bat)
-* 🌐 **Execução Direta no Navegador**: Abra [`prototipo_3d_standalone.html`](file:///d:/Downloads/Rascunho%20Rover/prototipo_3d_standalone.html)
-* 📦 **Código-Fonte Modular**: Diretório [`prototipo_3d/`](file:///d:/Downloads/Rascunho%20Rover/prototipo_3d/)
-
----
-
-## 🐍 Simulador Físico Avançado em Python (Tkinter + Matplotlib)
-
-Para modelagem matemática rigorosa, análise de estabilidade e testes automatizados, desenvolveu-se o pacote [`simulador_python/`](file:///d:/Downloads/Rascunho%20Rover/simulador_python/):
-
-* ⚡ **Execução Imediata no Windows**: Duplo clique em [`executar_simulador_python.bat`](file:///d:/Downloads/Rascunho%20Rover/executar_simulador_python.bat)
-* 💻 **Execução via Terminal**: `python -m simulador_python.main`
-* 📊 **Modo Benchmark Científico**: `python -m simulador_python.main --benchmark`
-* 📑 **Módulos Físicos**:
-  - `kinematics.py`: Cinemática inversa 4WS/4WD ($\delta_M = 3$, Siegwart & Nourbakhsh, 2004).
-  - `terramechanics.py`: Transferência dinâmica de cargas normais $F_z$ e Drawbar Pull (Wong, 2022).
-  - `curved_spoke_csts.py`: Modelo analítico de 3 raios curvos e mola espiral C-STS (Jeong & Kim, 2025).
-  - `blondel_collision.py`: Colisão de 4 rodas independentes na escada de Blondel ($2E+P = 64\text{ cm}$).
-  - `multibody_dynamics.py`: Simulador 6-DOF com balanço pendular da carga e elásticos de suspensão.
-  - `gui_app.py`: Interface gráfica interativa (Tkinter) com cockpit de telemetria e gráficos em tempo real.
-
-
+Three.js (`prototipo_3d/vendor/three/`) é distribuído sob licença MIT — ver
+[LICENSE-three.txt](prototipo_3d/vendor/three/LICENSE-three.txt).

@@ -1,0 +1,8 @@
+# Dependências do simulador físico e das ferramentas de projeto.
+#   pip install -r requirements.txt
+numpy>=1.24
+matplotlib>=3.7
+PyYAML>=6.0
+
+# Somente para rodar a suíte de testes:
+pytest>=7.4

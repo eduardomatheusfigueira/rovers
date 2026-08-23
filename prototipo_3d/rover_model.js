@@ -1,466 +1,371 @@
+// =============================================================================
+//  MODELO 3D PARAMÉTRICO DO ROVER
+//
+//  Toda a geometria vem de `parametros.js` (gerado do YAML mestre). Mudar o
+//  diâmetro da roda ou o entre-eixos no arquivo mestre muda o modelo 3D, o
+//  simulador Python e a documentação ao mesmo tempo — não há mais três
+//  geometrias diferentes convivendo no repositório.
+// =============================================================================
+
 import * as THREE from 'three';
+import { PARAMETROS, POSICOES_RODAS, IDS_RODAS } from './parametros.js';
+import { perfilRaios, OFFSET_CG } from './fisica.js';
 
-/**
- * Construtor de Tubo Cilíndrico conectado rigidamente entre dois pontos 3D
- */
-function createTubeBetween(p1, p2, radius, material) {
-    const distance = p1.distanceTo(p2);
-    const cylinderGeo = new THREE.CylinderGeometry(radius, radius, distance, 16);
-    const cylinder = new THREE.Mesh(cylinderGeo, material);
+const R = PARAMETROS.roda;
+const V = PARAMETROS.veiculo;
+const CS = PARAMETROS.csts;
 
-    const midpoint = new THREE.Vector3().addVectors(p1, p2).multiplyScalar(0.5);
-    cylinder.position.copy(midpoint);
-
-    const direction = new THREE.Vector3().subVectors(p2, p1).normalize();
-    const up = new THREE.Vector3(0, 1, 0);
-    const quaternion = new THREE.Quaternion().setFromUnitVectors(up, direction);
-    cylinder.quaternion.copy(quaternion);
-
-    cylinder.castShadow = true;
-    cylinder.receiveShadow = true;
-    return cylinder;
+function tuboEntre(p1, p2, raio, material) {
+    const dist = p1.distanceTo(p2);
+    const malha = new THREE.Mesh(new THREE.CylinderGeometry(raio, raio, dist, 14), material);
+    malha.position.copy(new THREE.Vector3().addVectors(p1, p2).multiplyScalar(0.5));
+    malha.quaternion.setFromUnitVectors(
+        new THREE.Vector3(0, 1, 0),
+        new THREE.Vector3().subVectors(p2, p1).normalize(),
+    );
+    malha.castShadow = true; malha.receiveShadow = true;
+    return malha;
 }
 
-/**
- * Construtor Procedural do Modelo 3D do Rover Frugal 4WD/4WS
- * - Dimensionamento das Rodas conforme Cálculo de Blondel (2E + P = 64cm -> Roda de Φ 300mm / r_max = 150mm)
- * - Roda com 3 raios curvos e Suspensão Torsional Espiral (C-STS) de Jeong & Kim (2025)
- * - Indicadores visuais de ponto de contato e colisão no solo
- */
-export class Rover3DModel {
-    constructor() {
-        this.group = new THREE.Group();
-        this.boxGroup = new THREE.Group();
-        this.armsGroup = new THREE.Group();
-        this.arms = [];
-        this.wheels = [];
-        this.cstsModules = [];
-        this.steeringKnuckles = [];
-        this.rubberBands = [];
-        this.contactHalos = [];
-        this.boxLid = null;
-        this.isLidOpen = false;
-        this.isExploded = false;
+export class ModeloRover {
+    constructor(opcoes = {}) {
+        this.raioMax = opcoes.raioMax || R.raio_max;
+        this.raioCubo = opcoes.raioCubo || R.raio_cubo;
+        this.grupo = new THREE.Group();
+        this.grupoCaixa = new THREE.Group();
+        this.bracos = {};
+        this.mangas = {};
+        this.rodas = {};
+        this.modulosCsts = {};
+        this.elasticos = {};
+        this.halos = {};
+        this.tampaAberta = false;
+        this.explodido = false;
+        this.notebook = null;
 
-        // Materiais Realistas
-        this.materials = {
-            pvc: new THREE.MeshStandardMaterial({
-                color: 0xf8fafc,
-                roughness: 0.3,
-                metalness: 0.05
+        this.materiais = {
+            pvc: new THREE.MeshStandardMaterial({ color: 0xf1f5f9, roughness: 0.35, metalness: 0.05 }),
+            petg: new THREE.MeshStandardMaterial({ color: 0xff6b22, roughness: 0.45, metalness: 0.1 }),
+            csts: new THREE.MeshStandardMaterial({ color: 0x00e5ff, roughness: 0.3, metalness: 0.25 }),
+            aro: new THREE.MeshStandardMaterial({ color: 0x2a3240, roughness: 0.95 }),
+            caixa: new THREE.MeshPhysicalMaterial({
+                color: 0xdff1fb, transparent: true, opacity: 0.42, roughness: 0.15,
+                transmission: 0.75, thickness: 0.5, side: THREE.DoubleSide,
             }),
-            petgOrange: new THREE.MeshStandardMaterial({
-                color: 0xff6b22,
-                roughness: 0.45,
-                metalness: 0.1
-            }),
-            cstsCyan: new THREE.MeshStandardMaterial({
-                color: 0x00e5ff,
-                roughness: 0.35,
-                metalness: 0.2
-            }),
-            boxTranslucent: new THREE.MeshPhysicalMaterial({
-                color: 0xe0f2fe,
-                transparent: true,
-                opacity: 0.70,
-                roughness: 0.2,
-                transmission: 0.8,
-                ior: 1.4,
-                thickness: 0.8
-            }),
-            boxLatch: new THREE.MeshStandardMaterial({
-                color: 0x1e3a8a,
-                roughness: 0.3
-            }),
-            laptopBody: new THREE.MeshStandardMaterial({
-                color: 0x1e293b,
-                metalness: 0.7,
-                roughness: 0.3
-            }),
-            laptopScreen: new THREE.MeshBasicMaterial({
-                color: 0x00e5ff
-            }),
-            rubberBand: new THREE.MeshStandardMaterial({
-                color: 0xd4a359,
-                roughness: 0.9,
-                metalness: 0.0
-            }),
-            rubberTread: new THREE.MeshStandardMaterial({
-                color: 0x111827,
-                roughness: 0.95
-            }),
-            metalBolt: new THREE.MeshStandardMaterial({
-                color: 0xd1d5db,
-                metalness: 0.9,
-                roughness: 0.2
-            }),
-            estopRed: new THREE.MeshStandardMaterial({
-                color: 0xd50000,
-                roughness: 0.2
-            }),
-            cameraLens: new THREE.MeshStandardMaterial({
-                color: 0x0a0a0a,
-                roughness: 0.1,
-                metalness: 0.9
-            }),
-            contactGlow: new THREE.MeshBasicMaterial({
-                color: 0x00e5ff,
-                transparent: true,
-                opacity: 0.6,
-                side: THREE.DoubleSide
-            })
+            escuro: new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.65, roughness: 0.35 }),
+            metal: new THREE.MeshStandardMaterial({ color: 0xcbd5e1, metalness: 0.9, roughness: 0.2 }),
+            elastico: new THREE.MeshStandardMaterial({ color: 0xd4a359, roughness: 0.9 }),
+            bateria: new THREE.MeshStandardMaterial({ color: 0x14532d, roughness: 0.6 }),
+            tela: new THREE.MeshBasicMaterial({ color: 0x22d3ee }),
+            halo: new THREE.MeshBasicMaterial({ color: 0x00e5ff, transparent: true,
+                                               opacity: 0.5, side: THREE.DoubleSide }),
         };
 
-        this.buildModel();
+        this.construir();
     }
 
-    buildModel() {
-        this.buildOrganizerBox();
-        this.buildRigidRadialArms();
-
-        this.group.add(this.boxGroup);
-        this.group.add(this.armsGroup);
+    construir() {
+        this.construirCaixa();
+        this.construirBracos();
+        this.grupo.add(this.grupoCaixa);
     }
 
-    buildOrganizerBox() {
-        const boxWidth = 0.46;  // 46 cm
-        const boxLength = 0.58; // 58 cm
-        const boxHeight = 0.24; // 24 cm
+    // -- caixa organizadora pendular ------------------------------------
+    construirCaixa() {
+        const larguraCaixa = 0.42, profundidade = 0.34, altura = V.altura_caixa;
+        const yFundo = V.vao_livre_ventre - V.altura_cg_chassi;   // ambas medidas do solo
 
-        // Corpo da Caixa (Centralizada e Rebaixada em Pêndulo)
-        const boxGeo = new THREE.BoxGeometry(boxWidth, boxHeight, boxLength);
-        const boxMesh = new THREE.Mesh(boxGeo, this.materials.boxTranslucent);
-        boxMesh.castShadow = true;
-        boxMesh.receiveShadow = true;
-        boxMesh.position.y = 0.05; // Vão livre = 8 cm acima do solo Y = -0.15
-        this.boxGroup.add(boxMesh);
-
-        // Borda Superior Reforçada
-        const rimGeo = new THREE.BoxGeometry(boxWidth + 0.025, 0.02, boxLength + 0.025);
-        const rimMesh = new THREE.Mesh(rimGeo, this.materials.petgOrange);
-        rimMesh.position.y = 0.16;
-        this.boxGroup.add(rimMesh);
-
-        // Tampa da Caixa
-        this.boxLid = new THREE.Group();
-        this.boxLid.position.set(0, 0.17, 0);
-
-        const lidGeo = new THREE.BoxGeometry(boxWidth + 0.035, 0.025, boxLength + 0.035);
-        const lidMesh = new THREE.Mesh(lidGeo, this.materials.boxTranslucent);
-        lidMesh.position.set(0, 0.0125, 0);
-        this.boxLid.add(lidMesh);
-
-        // Travas Azuis Laterais
-        [-1, 1].forEach(side => {
-            const latchGeo = new THREE.BoxGeometry(0.015, 0.05, 0.08);
-            const latch = new THREE.Mesh(latchGeo, this.materials.boxLatch);
-            latch.position.set(side * (boxWidth / 2 + 0.015), 0.01, 0);
-            this.boxLid.add(latch);
-        });
-
-        // Câmera FPV
-        const camBase = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.035, 0.035), this.materials.petgOrange);
-        camBase.position.set(0, 0.04, -0.22);
-        const lens = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.02, 16), this.materials.cameraLens);
-        lens.rotation.x = Math.PI / 2;
-        lens.position.set(0, 0.04, -0.24);
-        this.boxLid.add(camBase); this.boxLid.add(lens);
-
-        // Botão E-Stop (Cogumelo Vermelho)
-        const estopBase = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.015, 16), this.materials.petgOrange);
-        estopBase.position.set(0.09, 0.035, -0.12);
-        const estopBtn = new THREE.Mesh(new THREE.CylinderGeometry(0.026, 0.026, 0.018, 16), this.materials.estopRed);
-        estopBtn.position.set(0.09, 0.05, -0.12);
-        this.boxLid.add(estopBase); this.boxLid.add(estopBtn);
-
-        this.boxGroup.add(this.boxLid);
-
-        // Notebook Transportado no Interior
-        this.buildLaptopInside();
-    }
-
-    buildLaptopInside() {
-        const laptopGroup = new THREE.Group();
-        laptopGroup.position.set(0, -0.04, 0);
-
-        const baseMesh = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.012, 0.30), this.materials.laptopBody);
-        laptopGroup.add(baseMesh);
-
-        const kb = new THREE.Mesh(new THREE.PlaneGeometry(0.18, 0.24), new THREE.MeshStandardMaterial({ color: 0x0f172a }));
-        kb.rotation.x = -Math.PI / 2;
-        kb.position.set(0, 0.007, 0.02);
-        laptopGroup.add(kb);
-
-        const screenBase = new THREE.Group();
-        screenBase.position.set(0, 0.006, -0.14);
-
-        const scrLid = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.18, 0.008), this.materials.laptopBody);
-        scrLid.position.set(0, 0.09, 0);
-
-        const scrDisp = new THREE.Mesh(new THREE.PlaneGeometry(0.20, 0.15), this.materials.laptopScreen);
-        scrDisp.position.set(0, 0.09, 0.005);
-
-        screenBase.add(scrLid);
-        screenBase.add(scrDisp);
-        screenBase.rotation.x = 0.40;
-
-        laptopGroup.add(screenBase);
-        this.boxGroup.add(laptopGroup);
-    }
-
-    buildRigidRadialArms() {
-        const armConfigs = [
-            { id: 'FL', xSign: -1, zSign: -1, label: 'Dianteiro Esquerdo' },
-            { id: 'FR', xSign: 1,  zSign: -1, label: 'Dianteiro Direito' },
-            { id: 'RL', xSign: -1, zSign: 1,  label: 'Traseiro Esquerdo' },
-            { id: 'RR', xSign: 1,  zSign: 1,  label: 'Traseiro Direito' }
-        ];
-
-        const pipeRadius = 0.014;
-
-        armConfigs.forEach(cfg => {
-            const armRoot = new THREE.Group();
-            armRoot.name = `Arm_${cfg.id}`;
-
-            // PONTOS GEOMÉTRICOS EXATOS (Dimensionados para Roda de Blondel r_max = 150mm)
-            const pClamp = new THREE.Vector3(cfg.xSign * 0.22, 0.14, cfg.zSign * 0.27);
-            const pApex = new THREE.Vector3(cfg.xSign * 0.46, 0.42, cfg.zSign * 0.50);
-            const pKnuckleTop = new THREE.Vector3(cfg.xSign * 0.66, 0.10, cfg.zSign * 0.68);
-            const pWheelCenter = new THREE.Vector3(cfg.xSign * 0.72, 0.00, cfg.zSign * 0.68);
-
-            // A. Abraçadeira Split-Clamp na borda da caixa
-            const clamp = new THREE.Mesh(new THREE.BoxGeometry(0.065, 0.065, 0.065), this.materials.petgOrange);
-            clamp.position.copy(pClamp);
-            armRoot.add(clamp);
-
-            // B. Haste Superior de PVC (Ascendente)
-            const pipeAsc = createTubeBetween(pClamp, pApex, pipeRadius, this.materials.pvc);
-            armRoot.add(pipeAsc);
-
-            // C. Vértice Superior 3D (Junta no ápice do V)
-            const apexMesh = new THREE.Mesh(new THREE.SphereGeometry(0.038, 16, 16), this.materials.petgOrange);
-            apexMesh.position.copy(pApex);
-            armRoot.add(apexMesh);
-
-            // D. Haste Inferior de PVC (Descendente)
-            const pipeDesc = createTubeBetween(pApex, pKnuckleTop, pipeRadius, this.materials.pvc);
-            armRoot.add(pipeDesc);
-
-            // E. Suporte Inferior do Braço
-            const lowerBracket = new THREE.Mesh(new THREE.BoxGeometry(0.055, 0.055, 0.055), this.materials.petgOrange);
-            lowerBracket.position.copy(pKnuckleTop);
-            armRoot.add(lowerBracket);
-
-            // F. Módulo Móvel de Esterçamento 4WS
-            const knuckleGroup = new THREE.Group();
-            knuckleGroup.position.copy(pWheelCenter);
-
-            const knuckleBody = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.09, 0.06), this.materials.petgOrange);
-            knuckleBody.position.set(0, 0.03, 0);
-            knuckleGroup.add(knuckleBody);
-
-            const servo = new THREE.Mesh(new THREE.BoxGeometry(0.045, 0.04, 0.05), this.materials.laptopBody);
-            servo.position.set(0, 0.085, 0);
-            knuckleGroup.add(servo);
-
-            // Elásticos de Suspensão Complacente Linear
-            const rubberGroup = new THREE.Group();
-            for (let b = -1; b <= 1; b += 2) {
-                const bandGeo = new THREE.CylinderGeometry(0.0035, 0.0035, 0.09, 8);
-                const bandMesh = new THREE.Mesh(bandGeo, this.materials.rubberBand);
-                bandMesh.position.set(b * 0.022, 0.03, 0);
-                rubberGroup.add(bandMesh);
-            }
-            knuckleGroup.add(rubberGroup);
-            this.rubberBands.push(rubberGroup);
-
-            // Motorredutor de Tração 4WD
-            const motorMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.06, 16), this.materials.laptopBody);
-            motorMesh.rotation.z = Math.PI / 2;
-            motorMesh.position.set(cfg.xSign * 0.02, 0, 0);
-            knuckleGroup.add(motorMesh);
-
-            // Roda de 3 Raios Curvos com Módulo C-STS Dimensionada por Blondel (r_max = 150mm)
-            const { wheelGroup, cstsGroup } = this.buildBlondelCurvedSpokeWheel(cfg.xSign);
-            wheelGroup.position.set(cfg.xSign * 0.065, 0, 0);
-            knuckleGroup.add(wheelGroup);
-
-            // Halo Indicador de Ponto de Contato no Solo / Degrau
-            const haloGeo = new THREE.RingGeometry(0.03, 0.07, 16);
-            const haloMesh = new THREE.Mesh(haloGeo, this.materials.contactGlow);
-            haloMesh.rotation.x = -Math.PI / 2;
-            haloMesh.position.set(0, -0.145, 0);
-            knuckleGroup.add(haloMesh);
-            this.contactHalos.push(haloMesh);
-
-            this.steeringKnuckles.push(knuckleGroup);
-            this.wheels.push(wheelGroup);
-            this.cstsModules.push(cstsGroup);
-
-            armRoot.add(knuckleGroup);
-            this.arms.push(armRoot);
-            this.armsGroup.add(armRoot);
-        });
-    }
-
-    /**
-     * Roda de 3 Raios Curvos Dimensionada para Degraus de Blondel (2E + P = 64cm)
-     * - r_max = 150 mm (Diâmetro total = 300 mm)
-     * - r_min = 45 mm (Diâmetro do cubo C-STS = 90 mm)
-     */
-    buildBlondelCurvedSpokeWheel(xDirection) {
-        const wheelGroup = new THREE.Group();
-        const wheelRadius = 0.15; // 300 mm de diâmetro (r_max de Blondel)
-        const hubRadius = 0.045;  // 90 mm de diâmetro do cubo C-STS
-        const numSpokes = 3;
-
-        // 1. MÓDULO C-STS NO CUBO
-        const cstsGroup = new THREE.Group();
-        const innerRing = new THREE.Mesh(
-            new THREE.CylinderGeometry(0.018, 0.018, 0.025, 16),
-            this.materials.petgOrange
+        const paredes = new THREE.Mesh(
+            new THREE.BoxGeometry(larguraCaixa, altura, profundidade),
+            this.materiais.caixa,
         );
-        innerRing.rotation.z = Math.PI / 2;
-        cstsGroup.add(innerRing);
+        paredes.position.y = yFundo + altura / 2;
+        paredes.castShadow = true;
+        this.grupoCaixa.add(paredes);
 
-        // Mola Espiral Plana C-STS
-        const spiralShape = new THREE.Shape();
-        const spiralPoints = [];
-        const spiralTurns = 1.8;
-        const spiralSteps = 30;
-        for (let i = 0; i <= spiralSteps; i++) {
-            const t = i / spiralSteps;
-            const r = 0.020 + t * (hubRadius - 0.020);
-            const theta = t * Math.PI * 2 * spiralTurns * xDirection;
-            spiralPoints.push(new THREE.Vector2(Math.cos(theta) * r, Math.sin(theta) * r));
-        }
-        spiralShape.moveTo(spiralPoints[0].x, spiralPoints[0].y);
-        for (let i = 1; i <= spiralSteps; i++) spiralShape.lineTo(spiralPoints[i].x, spiralPoints[i].y);
-        for (let i = spiralSteps; i >= 0; i--) {
-            const t = i / spiralSteps;
-            const r = 0.016 + t * (hubRadius - 0.020);
-            const theta = t * Math.PI * 2 * spiralTurns * xDirection;
-            spiralShape.lineTo(Math.cos(theta) * r, Math.sin(theta) * r);
-        }
-        spiralShape.closePath();
-
-        const spiralGeo = new THREE.ExtrudeGeometry(spiralShape, { depth: 0.018, bevelEnabled: false });
-        const spiralMesh = new THREE.Mesh(spiralGeo, this.materials.cstsCyan);
-        spiralMesh.rotation.y = Math.PI / 2;
-        spiralMesh.position.x = -0.009;
-        cstsGroup.add(spiralMesh);
-
-        const outerRing = new THREE.Mesh(
-            new THREE.TorusGeometry(hubRadius, 0.006, 8, 24),
-            this.materials.petgOrange
+        const fundo = new THREE.Mesh(
+            new THREE.BoxGeometry(larguraCaixa, 0.012, profundidade),
+            this.materiais.escuro,
         );
-        outerRing.rotation.y = Math.PI / 2;
-        cstsGroup.add(outerRing);
+        fundo.position.y = yFundo;
+        this.grupoCaixa.add(fundo);
 
-        wheelGroup.add(cstsGroup);
+        this.tampa = new THREE.Group();
+        const tampaMalha = new THREE.Mesh(
+            new THREE.BoxGeometry(larguraCaixa + 0.02, 0.014, profundidade + 0.02),
+            this.materiais.caixa,
+        );
+        tampaMalha.position.set(0, 0, profundidade / 2);
+        this.tampa.add(tampaMalha);
+        this.tampa.position.set(0, yFundo + altura, -profundidade / 2);
+        this.grupoCaixa.add(this.tampa);
 
-        // 2. 3 RAIOS CURVOS ESPIRALADOS (Cálculo de Blondel)
-        for (let s = 0; s < numSpokes; s++) {
-            const spokeShape = new THREE.Shape();
-            const angleOffset = (s * Math.PI * 2) / numSpokes;
+        // Bateria e eletrônica no fundo: é isso que rebaixa o CG
+        const bat = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.05, 0.09), this.materiais.bateria);
+        bat.position.set(-0.11, yFundo + 0.035, 0);
+        this.grupoCaixa.add(bat);
+        const pdb = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.03, 0.08), this.materiais.escuro);
+        pdb.position.set(0.12, yFundo + 0.028, 0);
+        this.grupoCaixa.add(pdb);
 
-            const points = [];
-            const steps = 18;
-            for (let i = 0; i <= steps; i++) {
-                const t = i / steps;
-                const r = hubRadius + t * (wheelRadius - hubRadius);
-                const theta = angleOffset + Math.pow(t, 0.85) * 1.55 * xDirection;
-                points.push(new THREE.Vector2(Math.cos(theta) * r, Math.sin(theta) * r));
+        // Notebook (carga útil), inicialmente oculto
+        this.notebook = new THREE.Group();
+        const base = new THREE.Mesh(new THREE.BoxGeometry(0.31, 0.02, 0.22), this.materiais.escuro);
+        this.notebook.add(base);
+        const tela = new THREE.Mesh(new THREE.BoxGeometry(0.29, 0.001, 0.20), this.materiais.tela);
+        tela.position.y = 0.011;
+        this.notebook.add(tela);
+        this.notebook.position.set(0, yFundo + 0.075, 0);
+        this.notebook.visible = false;
+        this.grupoCaixa.add(this.notebook);
+
+        // Câmera FPV no topo frontal
+        const cam = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, 0.03, 12),
+                                   this.materiais.escuro);
+        cam.rotation.x = Math.PI / 2;
+        cam.position.set(0, yFundo + altura - 0.04, -profundidade / 2 - 0.015);
+        this.grupoCaixa.add(cam);
+
+        // Botão de emergência
+        const estop = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.012, 16),
+                                     new THREE.MeshStandardMaterial({ color: 0xd50000 }));
+        estop.position.set(0.14, yFundo + altura + 0.008, 0.1);
+        this.grupoCaixa.add(estop);
+    }
+
+    // -- braços em V invertido + mangas 4WS + rodas -----------------------
+    construirBracos() {
+        const raioTubo = 0.014;
+        for (const id of IDS_RODAS) {
+            const p = POSICOES_RODAS[id];
+            const sx = Math.sign(p.x), sz = Math.sign(p.z);
+            const braco = new THREE.Group();
+            braco.name = `braco_${id}`;
+
+            // Cotas vindas de simulador_python/estrutura.py, via parametros.js:
+            // o modelo 3D não tem mais nenhuma cota de braço escrita à mão.
+            const g = PARAMETROS.estrutura.bracos[id];
+            const emCg = (v) => new THREE.Vector3(v[0], v[1] - V.altura_cg_chassi, v[2]);
+            const yEixo = -OFFSET_CG;
+            const pAbraca = emCg(g.abracadeira);
+            const pVertice = emCg(g.vertice);
+            const pManga = emCg(g.manga);
+
+            const abraca = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, 0.06), this.materiais.petg);
+            abraca.position.copy(pAbraca);
+            braco.add(abraca);
+            braco.add(tuboEntre(pAbraca, pVertice, raioTubo, this.materiais.pvc));
+
+            const vertice = new THREE.Mesh(new THREE.SphereGeometry(0.034, 14, 12), this.materiais.petg);
+            vertice.position.copy(pVertice);
+            braco.add(vertice);
+            braco.add(tuboEntre(pVertice, pManga, raioTubo, this.materiais.pvc));
+
+            // Manga de esterçamento (gira em torno de Y)
+            const manga = new THREE.Group();
+            manga.position.set(p.x, yEixo, p.z);
+
+            const corpo = new THREE.Mesh(new THREE.BoxGeometry(0.055, 0.10, 0.055), this.materiais.petg);
+            corpo.position.y = 0.05;
+            manga.add(corpo);
+
+            const servo = new THREE.Mesh(new THREE.BoxGeometry(0.042, 0.038, 0.048), this.materiais.escuro);
+            servo.position.y = 0.115;
+            manga.add(servo);
+
+            const motor = new THREE.Mesh(new THREE.CylinderGeometry(0.019, 0.019, 0.058, 14),
+                                         this.materiais.escuro);
+            motor.rotation.z = Math.PI / 2;
+            motor.position.x = sx * 0.022;
+            manga.add(motor);
+
+            // Feixe de elásticos: agora com o curso real de projeto
+            const feixe = new THREE.Group();
+            const n = Math.min(6, PARAMETROS.suspensao_elastica.elasticos_por_perna);
+            for (let b = 0; b < n; b++) {
+                const el = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.0032, 0.0032, PARAMETROS.suspensao_elastica.curso_maximo * 1.4, 6),
+                    this.materiais.elastico,
+                );
+                const ang = (b / n) * Math.PI * 2;
+                el.position.set(Math.cos(ang) * 0.026, 0.06, Math.sin(ang) * 0.026);
+                feixe.add(el);
             }
+            manga.add(feixe);
+            this.elasticos[id] = feixe;
 
-            spokeShape.moveTo(points[0].x, points[0].y);
-            for (let i = 1; i <= steps; i++) spokeShape.lineTo(points[i].x, points[i].y);
-            for (let i = steps; i >= 0; i--) {
-                const t = i / steps;
-                const r = (hubRadius - 0.008) + t * (wheelRadius - hubRadius);
-                const theta = angleOffset + Math.pow(t, 0.85) * 1.55 * xDirection + 0.15 * (1 - t * 0.3);
-                spokeShape.lineTo(Math.cos(theta) * r, Math.sin(theta) * r);
+            const { roda, csts } = this.construirRoda(sx);
+            roda.position.x = sx * 0.055;
+            manga.add(roda);
+            this.rodas[id] = roda;
+            this.modulosCsts[id] = csts;
+
+            const halo = new THREE.Mesh(
+                new THREE.RingGeometry(this.raioMax * 0.18, this.raioMax * 0.36, 18),
+                this.materiais.halo.clone());
+            halo.rotation.x = -Math.PI / 2;
+            halo.position.y = -this.raioMax + 0.005;
+            manga.add(halo);
+            this.halos[id] = halo;
+
+            braco.add(manga);
+            this.mangas[id] = manga;
+            this.bracos[id] = braco;
+            this.grupo.add(braco);
+        }
+    }
+
+    construirRoda(sentidoX) {
+        const roda = new THREE.Group();
+        const rMax = this.raioMax, rCubo = this.raioCubo;
+
+        // Módulo C-STS: espiral plana com a geometria dimensionada
+        const csts = new THREE.Group();
+        const eixo = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, 0.03, 14),
+                                    this.materiais.petg);
+        eixo.rotation.z = Math.PI / 2;
+        csts.add(eixo);
+
+        const forma = new THREE.Shape();
+        const voltas = CS.comprimento_desenrolado_L /
+                       (Math.PI * (CS.raio_interno_espiral + CS.raio_externo_espiral));
+        const passosEsp = 48;
+        const pts = [];
+        for (let i = 0; i <= passosEsp; i++) {
+            const t = i / passosEsp;
+            const raio = CS.raio_interno_espiral +
+                         t * (CS.raio_externo_espiral - CS.raio_interno_espiral);
+            const th = t * Math.PI * 2 * voltas * sentidoX;
+            pts.push(new THREE.Vector2(Math.cos(th) * raio, Math.sin(th) * raio));
+        }
+        forma.moveTo(pts[0].x, pts[0].y);
+        for (let i = 1; i <= passosEsp; i++) forma.lineTo(pts[i].x, pts[i].y);
+        for (let i = passosEsp; i >= 0; i--) {
+            const t = i / passosEsp;
+            const raio = CS.raio_interno_espiral - CS.espessura_t +
+                         t * (CS.raio_externo_espiral - CS.raio_interno_espiral);
+            const th = t * Math.PI * 2 * voltas * sentidoX;
+            forma.lineTo(Math.cos(th) * raio, Math.sin(th) * raio);
+        }
+        forma.closePath();
+        const espiral = new THREE.Mesh(
+            new THREE.ExtrudeGeometry(forma, { depth: CS.largura_b, bevelEnabled: false }),
+            this.materiais.csts,
+        );
+        espiral.rotation.y = Math.PI / 2;
+        espiral.position.x = -CS.largura_b / 2;
+        csts.add(espiral);
+
+        const anelCubo = new THREE.Mesh(new THREE.TorusGeometry(rCubo, 0.006, 8, 26),
+                                        this.materiais.petg);
+        anelCubo.rotation.y = Math.PI / 2;
+        csts.add(anelCubo);
+        roda.add(csts);
+
+        // Raios curvos, gerados pela MESMA parametrização da física
+        const perfil = perfilRaios(24, this.raioMax, this.raioCubo);
+        const porRaio = perfil.length / R.num_raios_N;
+        for (let s = 0; s < R.num_raios_N; s++) {
+            const forma2 = new THREE.Shape();
+            const trecho = perfil.slice(s * porRaio, (s + 1) * porRaio);
+            // Espessura real do raio, afinando da raiz para a ponta (parâmetros mestres)
+            const espessura = (u) => R.espessura_raiz + u * (R.espessura_ponta - R.espessura_raiz);
+            forma2.moveTo(Math.cos(trecho[0].th) * trecho[0].r, Math.sin(trecho[0].th) * trecho[0].r);
+            for (const p of trecho) {
+                forma2.lineTo(Math.cos(p.th) * p.r, Math.sin(p.th) * p.r);
             }
-            spokeShape.closePath();
+            for (let i = trecho.length - 1; i >= 0; i--) {
+                const p = trecho[i];
+                const rr = p.r - espessura(p.u);
+                forma2.lineTo(Math.cos(p.th) * rr, Math.sin(p.th) * rr);
+            }
+            forma2.closePath();
+            const malha = new THREE.Mesh(
+                new THREE.ExtrudeGeometry(forma2, { depth: R.largura_raio, bevelEnabled: false }),
+                this.materiais.petg,
+            );
+            malha.rotation.y = Math.PI / 2;
+            malha.position.x = -R.largura_raio / 2;
+            malha.castShadow = true;
+            roda.add(malha);
 
-            const spokeGeo = new THREE.ExtrudeGeometry(spokeShape, {
-                depth: 0.022,
-                bevelEnabled: true,
-                bevelSegments: 2,
-                bevelSize: 0.002,
-                bevelThickness: 0.002
-            });
-            const spokeMesh = new THREE.Mesh(spokeGeo, this.materials.petgOrange);
-            spokeMesh.rotation.y = Math.PI / 2;
-            spokeMesh.position.x = -0.011;
-            wheelGroup.add(spokeMesh);
-
-            // Garra de Borracha na Extremidade do Raio
-            const tipPoint = points[steps];
-            const gripGeo = new THREE.BoxGeometry(0.028, 0.014, 0.030);
-            const gripMesh = new THREE.Mesh(gripGeo, this.materials.rubberTread);
-            gripMesh.position.set(0, tipPoint.y, tipPoint.x);
-            wheelGroup.add(gripMesh);
+            // Pastilha de borracha na ponta
+            const ponta = trecho[trecho.length - 1];
+            const garra = new THREE.Mesh(
+                new THREE.BoxGeometry(R.largura_raio + 0.006, 0.012, 0.026),
+                this.materiais.aro,
+            );
+            garra.position.set(0, Math.sin(ponta.th) * ponta.r, Math.cos(ponta.th) * ponta.r);
+            roda.add(garra);
         }
 
-        const bolt = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.04, 8), this.materials.metalBolt);
-        bolt.rotation.z = Math.PI / 2;
-        wheelGroup.add(bolt);
+        // Aro elástico — item crítico do projeto, representado como um toro fino
+        const aro = new THREE.Mesh(
+            new THREE.TorusGeometry(rMax - 0.009, 0.009, 10, 44),
+            this.materiais.aro,
+        );
+        aro.rotation.y = Math.PI / 2;
+        aro.name = 'aro';
+        roda.add(aro);
+        this._aroVisivel = true;
 
-        return { wheelGroup, cstsGroup };
+        return { roda, csts };
     }
 
-    setSteeringAngles(angles) {
-        for (let i = 0; i < 4; i++) {
-            if (this.steeringKnuckles[i]) {
-                this.steeringKnuckles[i].rotation.y = angles[i];
-            }
+    // -- atualização a cada quadro ---------------------------------------
+    aplicarEstado(fisica) {
+        for (const id of IDS_RODAS) {
+            const manga = this.mangas[id];
+            if (!manga) continue;
+            manga.rotation.y = fisica.anguloEstercamento[id] || 0;
+
+            // curso real da suspensão: cota da roda em relação ao ponto de fixação
+            const p = POSICOES_RODAS[id];
+            const alavancaArf = -p.z, alavancaRol = p.x;
+            const yFixacao = fisica.y - OFFSET_CG
+                + alavancaArf * Math.sin(fisica.arfagem)
+                + alavancaRol * Math.sin(fisica.rolagem);
+            const curso = fisica.rodas[id].altura - yFixacao;
+            manga.position.y = -OFFSET_CG + Math.max(-0.12, Math.min(0.12, curso));
+
+            this.rodas[id].rotation.x = -fisica.rodas[id].psi;
+            this.modulosCsts[id].rotation.x = fisica.rodas[id].deflexaoCsts;
+
+            const escala = 1 + Math.max(-0.4, Math.min(0.4, -curso / 0.09)) * 0.35;
+            this.elasticos[id].scale.set(1, escala, 1);
+
+            const halo = this.halos[id];
+            halo.visible = fisica.rodas[id].emContato;
+            halo.material.opacity = Math.min(0.85, 0.15 + fisica.forcasNormais[id] / 60);
+            halo.material.color.setHex(
+                fisica.rodas[id].tipoContato === 'raio' ? 0xffa000 : 0x00e5ff);
+        }
+        this.grupoCaixa.rotation.x = fisica.pendulo - fisica.arfagem;
+    }
+
+    definirAroVisivel(visivel) {
+        this._aroVisivel = visivel;
+        for (const id of IDS_RODAS) {
+            this.rodas[id].traverse((o) => { if (o.name === 'aro') o.visible = visivel; });
         }
     }
 
-    rotateWheels(deltaRotation) {
-        this.wheels.forEach(w => {
-            w.rotation.x += deltaRotation;
-        });
+    carregarNotebook(estado) { this.notebook.visible = estado; }
+
+    alternarTampa() {
+        this.tampaAberta = !this.tampaAberta;
+        this.tampa.rotation.x = this.tampaAberta ? -2.0 : 0;
+        return this.tampaAberta;
     }
 
-    setWheelContactState(wheelIdx, isContact, normalForce) {
-        if (this.contactHalos[wheelIdx]) {
-            this.contactHalos[wheelIdx].visible = isContact;
-            const opacity = Math.min(0.9, 0.3 + (normalForce / 50));
-            this.contactHalos[wheelIdx].material.opacity = opacity;
+    alternarExplodido() {
+        this.explodido = !this.explodido;
+        const d = this.explodido ? 0.16 : 0;
+        for (const id of IDS_RODAS) {
+            const p = POSICOES_RODAS[id];
+            this.bracos[id].position.set(Math.sign(p.x) * d, d * 0.4, Math.sign(p.z) * d);
         }
-    }
-
-    updateSuspensionCompliance(bounceAmount) {
-        this.rubberBands.forEach((rb, idx) => {
-            const scaleY = 1.0 + Math.sin(Date.now() * 0.015 + idx) * bounceAmount;
-            rb.scale.set(1.0, scaleY, 1.0);
-        });
-
-        this.cstsModules.forEach((csts, idx) => {
-            const torsionalDeflection = Math.sin(Date.now() * 0.02 + idx) * (bounceAmount * 0.8);
-            csts.rotation.x = torsionalDeflection;
-        });
-    }
-
-    toggleBoxLid() {
-        this.isLidOpen = !this.isLidOpen;
-        this.boxLid.rotation.x = this.isLidOpen ? -1.6 : 0;
-    }
-
-    toggleExplodedView() {
-        this.isExploded = !this.isExploded;
-        const offset = this.isExploded ? 0.15 : 0;
-
-        this.arms.forEach((arm, i) => {
-            const xSign = (i % 2 === 0) ? -1 : 1;
-            const zSign = (i < 2) ? -1 : 1;
-            arm.position.x = xSign * offset;
-            arm.position.z = zSign * offset;
-            arm.position.y = offset * 0.4;
-        });
-
-        this.boxGroup.position.y = this.isExploded ? -0.12 : 0;
+        this.grupoCaixa.position.y = this.explodido ? -0.10 : 0;
+        return this.explodido;
     }
 }

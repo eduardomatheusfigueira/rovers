@@ -1,6 +1,15 @@
 # 05. Dimensionamento das Rodas pelo Cálculo de Blondel e Dinâmica de Colisão Multicorpo
 ## Relação entre a Lei de Blondel (NBR 9050), a Cinemática de 3 Raios Curvos (Jeong & Kim, 2025) e o Modelo de Contato 4WD
 
+> [!IMPORTANT]
+> **Revisão R2 — superado**
+> A dedução do raio da roda neste documento usa um critério de **rolamento em piso plano** (Δs = 2πr/N ≥ P) para dimensionar uma roda que **não rola** sobre a escada — ela salta de nariz em nariz. O resultado (Φ300 mm) não transpõe o degrau de referência. Substituído por [`06_Sintese_da_Roda_e_Geometria_de_Escalada.md`](06_Sintese_da_Roda_e_Geometria_de_Escalada.md); detalhes em [A-01](../00_Especificacao_Mestre/02_Auditoria_Tecnica.md#a-01). As equações de transferência de carga (§3) continuam corretas.
+>
+> Parâmetros vigentes: [`00_Especificacao_Mestre/00_Parametros_Mestres.md`](../00_Especificacao_Mestre/00_Parametros_Mestres.md) ·
+> Achados: [`02_Auditoria_Tecnica.md`](../00_Especificacao_Mestre/02_Auditoria_Tecnica.md)
+
+---
+
 ---
 
 ## 1. O Cálculo de Blondel e as Escadas Civis Padrão

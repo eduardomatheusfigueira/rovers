@@ -1,0 +1,113 @@
+name: Verificação de engenharia
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  testes:
+    name: Testes do simulador físico
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Instalar dependências
+        run: pip install -r requirements.txt
+
+      - name: Suíte de verificação
+        run: python -m pytest testes/ -q
+
+      - name: Conferir se os artefatos gerados estão sincronizados
+        run: |
+          python3 ferramentas/gerar_parametros_js.py
+          python3 ferramentas/gerar_documentacao.py
+          python3 ferramentas/gerar_standalone.py
+          if ! git diff --quiet -- prototipo_3d/parametros.js \
+               00_Especificacao_Mestre/00_Parametros_Mestres.md \
+               prototipo_3d_standalone.html; then
+            echo "::error::Artefatos gerados estão fora de sincronia com parametros_mestres.yaml."
+            echo "Rode as três ferramentas de ferramentas/ e faça commit do resultado."
+            git diff --stat -- prototipo_3d/parametros.js \
+              00_Especificacao_Mestre/00_Parametros_Mestres.md prototipo_3d_standalone.html
+            exit 1
+          fi
+
+      - name: Gerar o Relatório de Engenharia
+        run: python3 -m simulador_python.main --relatorio --out resultados
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: relatorio-de-engenharia
+          path: resultados/
+          retention-days: 30
+
+  links:
+    name: Links da documentação
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verificar links relativos dos documentos
+        run: |
+          python3 - <<'PY'
+          import os, re, sys, urllib.parse
+          quebrados = []
+          for raiz, dirs, arquivos in os.walk('.'):
+              dirs[:] = [d for d in dirs if d not in ('.git', 'node_modules', 'resultados', 'vendor')]
+              for nome in arquivos:
+                  if not nome.endswith('.md'):
+                      continue
+                  caminho = os.path.join(raiz, nome)
+                  texto = open(caminho, encoding='utf-8').read()
+                  for m in re.finditer(r'\]\(<?([^)>]+)>?\)', texto):
+                      alvo = m.group(1).split('#')[0].strip()
+                      if not alvo or alvo.startswith(('http', 'mailto:', 'data:')):
+                          continue
+                      destino = os.path.normpath(
+                          os.path.join(os.path.dirname(caminho), urllib.parse.unquote(alvo)))
+                      if not os.path.exists(destino):
+                          quebrados.append(f"{caminho}: {alvo}")
+          if quebrados:
+              print("Links quebrados encontrados:")
+              for q in quebrados:
+                  print("  -", q)
+              sys.exit(1)
+          print("Todos os links relativos resolvem.")
+          PY
+
+  prototipo:
+    name: Protótipo 3D carrega sem erro
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: npm install --no-save playwright && npx playwright install --with-deps chromium
+      - name: Abrir o protótipo e capturar erros de console
+        run: |
+          python3 -m http.server 8899 &
+          sleep 2
+          node - <<'JS'
+          const { chromium } = require('playwright');
+          (async () => {
+            const nav = await chromium.launch();
+            const p = await nav.newPage();
+            const erros = [];
+            p.on('pageerror', e => erros.push(e.message));
+            p.on('console', m => { if (m.type() === 'error') erros.push(m.text()); });
+            await p.goto('http://127.0.0.1:8899/prototipo_3d/index.html', { waitUntil: 'networkidle' });
+            await p.waitForTimeout(5000);
+            const ok = await p.evaluate(() => !!document.querySelector('#canvas-container canvas'));
+            await nav.close();
+            if (!ok) { console.error('Canvas não foi criado'); process.exit(1); }
+            if (erros.length) { console.error('Erros no console:', erros); process.exit(1); }
+            console.log('Protótipo carregou sem erros.');
+          })();
+          JS

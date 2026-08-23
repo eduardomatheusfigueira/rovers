@@ -1,6 +1,15 @@
 # 04. Eletrônica, Arquitetura de Controle e Sistema de Potência
 ## Dimensionamento Mecatrônico (Sclater & Chironis, 2001), Odometria e Fusão Sensorial (Siegwart & Nourbakhsh, 2004)
 
+> [!IMPORTANT]
+> **Revisão R2 — parcialmente superado**
+> A arquitetura embarcada continua válida. O **dimensionamento de tração** (§2) usava r = 0,10 m e massa de 10 kg — ambos inconsistentes com o resto do projeto — e foi substituído por [`07_Orcamento_de_Tracao_Energia_e_Termica.md`](07_Orcamento_de_Tracao_Energia_e_Termica.md). O limiar anti-tombamento de 40° (§3) foi substituído por limiar dependente de modo. A arquitetura de software está em [`08_Arquitetura_de_Firmware_e_Seguranca_Funcional.md`](08_Arquitetura_de_Firmware_e_Seguranca_Funcional.md).
+>
+> Parâmetros vigentes: [`00_Especificacao_Mestre/00_Parametros_Mestres.md`](../00_Especificacao_Mestre/00_Parametros_Mestres.md) ·
+> Achados: [`02_Auditoria_Tecnica.md`](../00_Especificacao_Mestre/02_Auditoria_Tecnica.md)
+
+---
+
 ---
 
 ## 1. Arquitetura Geral do Sistema Embarcado
@@ -49,7 +58,12 @@ $$F_{tracao\_total} = W \sin\theta + f_r W \cos\theta + \frac{W}{g} a_x$$
 | **Torque Total nos 4 Eixos ($r_{roda} = 0,10\text{ m}$)** | $T_{total} = F_{total} \cdot r$ | **$6,52 \text{ N}\cdot\text{m}$** |
 | **Torque Mínimo por Motorredutor (4WD)** | $T_{motor} = T_{total} / 4$ | **$1,63 \text{ N}\cdot\text{m} \ (16,3 \text{ kgf}\cdot\text{cm})$** |
 
-* **Margem de Segurança**: Motorredutores DC 12V tipo **JGB37-550** com redução metálica de $1:50$ ou $1:70$ fornecem torque nominal de $3,5 \text{ N}\cdot\text{m}$ e torque de stall de até $8,0 \text{ N}\cdot\text{m}$, garantindo uma **margem de torque $> 100\%$** para superar degraus.
+> **Superado em R2.** A tabela acima usa $r_{roda} = 0,10$ m (o resto do projeto
+> usava 0,15 m) e massa de 10 kg (o simulador usava 7,5 kg), e ignora o torque
+> **geométrico de içamento** sobre o nariz do degrau, que é o caso dimensionante.
+> Com o modelo completo: torque exigido de **5,40 N·m por roda**, redução
+> **1:172**, stall de **12,49 N·m** e margem de **1,92**. Ver
+> [`07_Orcamento_de_Tracao_Energia_e_Termica.md`](07_Orcamento_de_Tracao_Energia_e_Termica.md).
 
 ---
 
@@ -72,7 +86,11 @@ graph LR
    $$\Delta x_k = v_{linear} \cdot \cos(\theta_k) \cdot \Delta t, \quad \Delta y_k = v_{linear} \cdot \sin(\theta_k) \cdot \Delta t$$
 2. **Monitoramento Ativo de Inclinação (*Anti-Tipover Guard*)**:
    * O sensor IMU (BNO055 / MPU6050) mede continuamente os ângulos de *Pitch* e *Roll* da caixa organizadora.
-   * **Intervenção Automática**: Se o ângulo de arfagem (*pitch*) ultrapassar o limiar crítico de segurança de $40^\circ$, o firmware do ESP32 desacelera os motores automaticamente e aciona freio dinâmico para impedir o capotamento.
+   * **Intervenção Automática (corrigido em R2)**: o limiar de arfagem é
+     **dependente de modo** — $35^\circ$ em piso e $52^\circ$ em modo escada.
+     Um limiar único de $40^\circ$ abortaria toda subida: numa escada de $29{,}5^\circ$
+     a oscilação da marcha de 3 raios leva o chassi a $\approx 43^\circ$ em
+     **operação normal**. O tombamento estático longitudinal ocorre em $52{,}6^\circ$.
 3. **Telemetria de Vibração da Carga (Notebook)**:
    * Registro contínuo dos picos de aceleração vertical ($a_z$). Se $a_z > 2,0g$, um aviso sonoro é enviado à tela FPV do piloto (*OSD*).
 

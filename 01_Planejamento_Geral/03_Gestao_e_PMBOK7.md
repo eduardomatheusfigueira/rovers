@@ -51,6 +51,13 @@ graph LR
 
 ## 4. Matriz de Gestão de Riscos do Projeto
 
+> **Atualizado em R2.** A matriz qualitativa abaixo continua útil como visão
+> executiva, mas os riscos **técnicos** foram desdobrados numa
+> [FMEA por subsistema](../02_Engenharia_e_Arquitetura/09_FMEA_e_Analise_de_Falhas.md)
+> com severidade, ocorrência, detecção e RPN. Três riscos passaram a bloqueantes
+> (RPN ≥ 200) e um foi reclassificado: o gargalo térmico é o **motor**, não o
+> driver de potência. Riscos de **cronograma e suprimento** permanecem aqui.
+
 ```mermaid
 quadrantChart
     title Matriz de Probabilidade x Impacto dos Riscos

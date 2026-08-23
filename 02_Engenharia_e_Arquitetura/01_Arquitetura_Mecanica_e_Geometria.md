@@ -1,6 +1,15 @@
 # 01. Arquitetura Mecânica, Geometria e Terramecânica Aplicada
 ## Chassi em Tubos de PVC, Juntas Split-Clamp, Fixação Toggle e Estabilidade Pendular
 
+> [!IMPORTANT]
+> **Revisão R2 — atualizado**
+> A concepção estrutural permanece. As **cotas** mudaram com o novo dimensionamento da roda: entre-eixos 690 mm, bitola 600 mm, vão livre do ventre 190 mm e altura do CG 264 mm. Valores vigentes na tabela de parâmetros.
+>
+> Parâmetros vigentes: [`00_Especificacao_Mestre/00_Parametros_Mestres.md`](../00_Especificacao_Mestre/00_Parametros_Mestres.md) ·
+> Achados: [`02_Auditoria_Tecnica.md`](../00_Especificacao_Mestre/02_Auditoria_Tecnica.md)
+
+---
+
 ---
 
 ## 1. Concepção Estrutural e Filosofia Geométrica
@@ -17,7 +26,7 @@ graph TD
     end
 ```
 
-![Render do Protótipo do Rover](file:///d:/Downloads/Rascunho%20Rover/Imagens/rover_prototipo_pronto.jpg)
+![Render do Protótipo do Rover](../Imagens/rover_prototipo_pronto.jpg)
 *(Renderização do protótipo: disposição em X dos braços de PVC em V invertido, juntas 3D laranjas, caixa organizadora central pendular, suspensão elástica e rodas de raios curvos)*
 
 ### Requisitos Geométricos Fundamentais:

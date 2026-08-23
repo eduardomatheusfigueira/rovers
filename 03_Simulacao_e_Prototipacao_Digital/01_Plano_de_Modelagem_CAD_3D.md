@@ -1,6 +1,15 @@
 # 01. Plano de Modelagem CAD 3D e Engenharia de Manufatura Aditiva
 ## Parametrização de Peças, Juntas de PVC e Diretrizes de Impressão 3D
 
+> [!IMPORTANT]
+> **Revisão R2 — atualizado**
+> O catálogo de peças descrevia a roda com **4 raios** (o resto do projeto usa 3) e o anel de banda de rodagem como **opcional** (ele é crítico — sem aro o cubo cai 105 mm por raio em piso plano). Corrigido no texto; ver [A-02](../00_Especificacao_Mestre/02_Auditoria_Tecnica.md#a-02) e [A-13](../00_Especificacao_Mestre/02_Auditoria_Tecnica.md#a-13).
+>
+> Parâmetros vigentes: [`00_Especificacao_Mestre/00_Parametros_Mestres.md`](../00_Especificacao_Mestre/00_Parametros_Mestres.md) ·
+> Achados: [`02_Auditoria_Tecnica.md`](../00_Especificacao_Mestre/02_Auditoria_Tecnica.md)
+
+---
+
 ---
 
 ## 1. Fluxo de Trabalho de Modelagem Paramétrica CAD
@@ -27,11 +36,12 @@ graph LR
 | :--- | :--- | :--- | :--- | :--- |
 | **CAD-01** | *Box-Clamp-Top* | Abraçadeira de fixação rápida no terço superior da caixa plástica | PETG / ABS | 50% (Padrão Gyroid) |
 | **CAD-02** | *Arm-Vertex-Joint* | Junta do vértice superior em V invertido com engate de PVC e olhal elástico | PETG | 70% |
-| **CAD-03** | *Wheel-Curved-Spoke* | Roda de 4 raios curvos de perfil espiral logarítmica para escadas | PETG / PLA+ | 80% a 100% nos raios |
+| **CAD-03** | *Wheel-Curved-Spoke* | Roda de **3** raios curvos (Φ 420 mm, r_cubo 70 mm), perfil em arco de varredura 1,35 rad | PETG | **100% nos raios** |
 | **CAD-04** | *Steering-Knuckle-4WS* | Manga de eixo de esterçamento com alojamento para rolamento 608ZZ | PETG | 60% |
 | **CAD-05** | *Motor-Mount-Bracket* | Suporte do motorredutor DC com flange de fixação no tubo de PVC inferior | PETG / PLA+ | 50% |
 | **CAD-06** | *Elastic-Tension-Spool* | Carretel pino-guia para ancoragem dos elásticos comuns de escritório | PLA+ / PETG | 100% |
-| **CAD-07** | *Tire-Tread-Ring* (Opcional) | Anel externo de banda de rodagem de alta aderência para os raios | TPU Flexível | 100% |
+| **CAD-07** | *Elastic-Rim-Ring* (**CRÍTICO**) | Aro elástico externo: fecha a superfície de rolamento no plano e colapsa localmente na quina do degrau. Sem ele, o cubo cai 105 mm por raio em piso plano | TPU 95A ou câmara de ar 20" | 100% |
+| **CAD-08** | *CSTS-Spiral* | Mola espiral plana do cubo: b = 30 mm, t = 9,71 mm, 1,5 voltas (r 20→62 mm), $k_t$ = 10,31 N·m/rad | PETG | 100% |
 
 ---
 

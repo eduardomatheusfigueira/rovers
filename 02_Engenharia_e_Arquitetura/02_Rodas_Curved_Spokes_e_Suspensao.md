@@ -1,6 +1,15 @@
 # 02. Rodas em Raios Curvos (*Curved Spokes*) e Suspensão Complacente Torsional (C-STS)
 ## Fundamentação Matemática Rigorosa baseada em Jeong & Kim (2025), Terramecânica (Wong, 2022) e Mecanismos (Sclater, 2001)
 
+> [!IMPORTANT]
+> **Revisão R2 — parcialmente superado**
+> A teoria CCS/DCS e o conceito do C-STS continuam válidos, mas o **dimensionamento** deste documento foi refeito: a roda passou de Φ300 mm para **Φ420 mm**, a rigidez do C-STS de 0,547 para **10,31 N·m/rad** e o curso da suspensão de 35 para **90 mm**. Ver [`06_Sintese_da_Roda_e_Geometria_de_Escalada.md`](06_Sintese_da_Roda_e_Geometria_de_Escalada.md).
+>
+> Parâmetros vigentes: [`00_Especificacao_Mestre/00_Parametros_Mestres.md`](../00_Especificacao_Mestre/00_Parametros_Mestres.md) ·
+> Achados: [`02_Auditoria_Tecnica.md`](../00_Especificacao_Mestre/02_Auditoria_Tecnica.md)
+
+---
+
 ---
 
 ## 1. Definição Geométrica Exata da Roda com 3 Raios Curvos (Jeong & Kim, 2025)
@@ -74,14 +83,24 @@ $$k_t = \frac{E \cdot b \cdot t^3}{12 \cdot L}$$
 
 Onde:
 * $E$: Módulo de elasticidade do material ($E_{PLA} \approx 3,5 \times 10^9 \text{ N/m}^2$, $E_{PETG} \approx 2,1 \times 10^9 \text{ N/m}^2$).
-* $b$: Largura axial da espiral ($b = 15\text{ mm}$).
-* $t$: Espessura da lâmina espiral ($t = 4\text{ a } 6\text{ mm}$).
-* $L$: Comprimento desenrolado da espiral ($L \approx 827,28\text{ mm}$).
+* $b$: Largura axial da espiral.
+* $t$: Espessura da lâmina espiral.
+* $L$: Comprimento desenrolado da espiral.
+
+> **⚠️ Atenção à escala.** A tabela abaixo reproduz os valores **do artigo**, medidos
+> no robô de bancada de Jeong & Kim. Aplicá-los diretamente a este rover seria um
+> erro grosseiro: com $r_{max} = 210$ mm e torque de pico de 5,40 N·m, uma mola de
+> 0,547 N·m/rad sofreria **566° de deflexão** — enrolaria por completo já no
+> primeiro degrau. O que se transporta do artigo é o **método** e o **fator de
+> correção 0,828** entre rigidez teórica e experimental (perda de rigidez do FDM),
+> não o valor absoluto. A espiral deste projeto (b = 30 mm, t = 9,71 mm,
+> L = 386 mm, $k_t$ = 10,31 N·m/rad) é dimensionada em
+> [`06 §5`](06_Sintese_da_Roda_e_Geometria_de_Escalada.md).
 
 | Variante do C-STS | Espessura ($t$) | Rigidez Teórica ($k_t$) | Rigidez Experimental Medida | Comportamento em Teste de Escada |
 | :--- | :---: | :---: | :---: | :--- |
 | **Baixa Rigidez (*Soft*)** | $4,0\text{ mm}$ | $0,246\text{ N}\cdot\text{m/rad}$ | $0,206\text{ N}\cdot\text{m/rad}$ | Máxima absorção de choque, maior deflexão angular. |
-| **Média Rigidez (*Baseline*)** | $5,0\text{ mm}$ | $0,661\text{ N}\cdot\text{m/rad}$ | $0,547\text{ N}\cdot\text{m/rad}$ | **Configuração Ótima**: equilíbrio entre torque e velocidade. |
+| **Média Rigidez (*Baseline*)** | $5,0\text{ mm}$ | $0,661\text{ N}\cdot\text{m/rad}$ | $0,547\text{ N}\cdot\text{m/rad}$ | Configuração ótima **na escala do artigo**. |
 | **Alta Rigidez (*Stiff*)** | $6,0\text{ mm}$ | $1,157\text{ N}\cdot\text{m/rad}$ | $0,909\text{ N}\cdot\text{m/rad}$ | Menor deflexão, resposta rígida em alta velocidade. |
 
 ---
@@ -107,6 +126,14 @@ Para aliar a precisão da pesquisa de Jeong & Kim (2025) à filosofia de custo m
 
 ## 5. Especificações de Fabricação em Impressão 3D
 
-* **Geometria dos Raios**: 3 raios em espiral com espessura de $8\text{ mm}$ na raiz, afinando para $6\text{ mm}$ na extremidade externa, com raio máximo $r_{max} = 120\text{ mm}$ (diâmetro total $240\text{ mm}$).
+* **Geometria dos Raios (R2)**: 3 raios em espiral com espessura de $10\text{ mm}$
+  na raiz, afinando para $7\text{ mm}$ na ponta, largura axial de $24\text{ mm}$,
+  com raio máximo $r_{max} = 210\text{ mm}$ (diâmetro total $420\text{ mm}$).
+  *(A versão anterior deste documento dizia $r_{max} = 120$ mm enquanto o resto do
+  projeto usava 150 mm — nenhum dos dois transpõe o degrau de referência. O
+  dimensionamento correto está em [`06`](06_Sintese_da_Roda_e_Geometria_de_Escalada.md).)*
+* **Aro Elástico (item crítico)**: anel externo de câmara de ar de bicicleta 20"
+  ou TPU 95A impresso, rigidez radial de $3500\text{ N/m}$. Sem ele o cubo oscila
+  $r_{max}(1-\cos(\pi/N)) = 105\text{ mm}$ em piso plano.
 * **Ponta de Contato (*Tread Grip*)**: Pastilha de borracha vulcanizada de alta fricção ($\mu > 0,85$) fixada na extremidade de cada raio curvo para garantir engate antiderrapante em quinas de concreto e mármore.
 * **Preenchimento de Impressão 3D**: $100\%$ de preenchimento (*solid infill*) nos raios e no anel interno do C-STS para evitar falhas por fadiga de cisalhamento.

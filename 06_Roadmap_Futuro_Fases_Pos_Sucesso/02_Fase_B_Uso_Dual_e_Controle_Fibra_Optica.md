@@ -75,3 +75,57 @@ A transição da plataforma base (Fase 6) para a versão tática com fibra ópti
 1. O carretel óptico é instalado dentro da caixa organizadora ou em um berço de PVC na traseira dos braços.
 2. A placa controladora ESP32 recebe a placa conversora SPI/Ethernet-to-Fiber.
 3. As rodas de raios curvos e a geometria pendular continuam operando normalmente para vencer escombros e escadas em ambientes urbanos colapsados.
+
+---
+
+## 5. Governança do Uso Dual — condições institucionais para a Fase B
+
+A Fase B propõe adaptar uma plataforma desenvolvida com apoio de uma instituição
+**pública e binacional** para aplicações que incluem defesa e segurança. Isso não
+é impedimento — inspeção de galerias de usina, resposta a desastre e varredura
+QBRN são aplicações civis legítimas e de alto valor público — mas é uma mudança
+de natureza do projeto que precisa de decisão formal **antes** de qualquer
+desenvolvimento, e não depois.
+
+### 5.1. Condições prévias
+
+| Condição | Por quê |
+| :--- | :--- |
+| **Aprovação institucional explícita** do Itaipu Parquetec para a linha de uso dual | A instituição precisa decidir se quer estar associada a essa aplicação; a decisão é dela, não do projeto |
+| **Separação de repositório e de licença** entre a plataforma base e a variante tática | A plataforma base é aberta; uma variante tática publicada em aberto tem implicações diferentes |
+| **Verificação de controles de exportação e de bens de uso dual** | Legislação brasileira de bens sensíveis e, se houver componente importado, os controles de origem |
+| **Parecer jurídico sobre a titularidade** dos resultados | Desenvolvimento com recurso público tem regime de propriedade próprio |
+| **Definição de aplicações vedadas** por escrito, no termo de cooperação | O que o proponente e a instituição concordam em não desenvolver |
+
+### 5.2. Delimitação técnica
+
+O escopo da Fase B como descrito neste documento é de **plataforma de transporte
+e sensoriamento teleoperada**: chassi, enlace óptico, câmeras e sensores. Ele
+**não inclui** e não deve ser estendido, sem nova decisão institucional, a:
+
+* integração de qualquer sistema de armas ou de disparo;
+* automação de identificação ou seleção de alvos;
+* qualquer função letal ou autônoma sobre pessoas.
+
+A distinção é operacionalmente relevante: um UGV de inspeção EOD **aproxima-se**
+de um artefato para que um operador humano o examine; ele não o manipula nem o
+neutraliza sozinho. Manter essa fronteira explícita no documento evita que ela
+seja atravessada por acúmulo de requisitos.
+
+### 5.3. Recomendação de sequenciamento
+
+```mermaid
+graph LR
+    A["Fase 6<br/>plataforma base homologada"] --> B{"Decisão institucional<br/>sobre uso dual"}
+    B -->|aprovado| C["Fase B<br/>enlace óptico + tropicalização"]
+    B -->|não aprovado| D["Fase A apenas<br/>logística e inspeção civil"]
+    C --> E["Aplicações civis de alto valor:<br/>galerias de Itaipu, resposta a desastre,<br/>QBRN, inspeção de infraestrutura"]
+    C -.->|"exige nova decisão<br/>e parecer jurídico"| F["Aplicações de defesa"]
+```
+
+> **Observação de engenharia, não de política.** O enlace por microfibra óptica
+> tem valor imediato e incontroverso nas **aplicações civis** — galerias de
+> drenagem e condutos forçados de Itaipu são ambientes onde nenhum enlace de rádio
+> funciona, e esse é provavelmente o caso de uso mais forte de toda a Fase B do
+> ponto de vista do parceiro institucional. Vale considerar desenvolvê-lo primeiro
+> por esse motivo, independentemente da decisão sobre uso dual.
