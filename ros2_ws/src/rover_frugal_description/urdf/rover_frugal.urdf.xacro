@@ -1,0 +1,381 @@
+<?xml version="1.0"?>
+<!--
+  ===========================================================================
+   Rover Frugal 4WD/4WS — descrição URDF
+
+   Este arquivo é ESCRITO À MÃO e não contém nenhum número de engenharia: todos
+   os valores vêm de `config/parametros.yaml`, gerado por
+   `ferramentas/gerar_ros_config.py` a partir de
+   `00_Especificacao_Mestre/parametros_mestres.yaml`.
+
+   Cadeia cinemática por roda (4 juntas — duas atuadas, duas passivas):
+
+     base_link
+       └─ suporte_i   ← prismática  `susp_i`     passiva, mola 1000 N/m, 90 mm
+            └─ manga_i     ← revoluta `esterco_i`  ATUADA (servo 4WS, ±55°)
+                 └─ cubo_i      ← contínua `tracao_i`  ATUADA (motorredutor 1:172)
+                      └─ roda_i      ← revoluta `csts_i`  passiva, mola 12,3 N·m/rad
+
+   A ordem importa: a suspensão fica entre o braço e a manga, o esterçamento
+   gira a manga, o motor aciona o cubo e o C-STS fica entre o cubo e a roda.
+  ===========================================================================
+-->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="rover_frugal">
+
+  <!-- Variante da roda: com aro elástico (rolamento contínuo) ou raios expostos
+       (marcha em escada). Ver 03_Simulacao/05 §4.3 — o Gazebo não representa o
+       colapso local do aro, então os dois regimes são duas variantes. -->
+  <xacro:arg name="aro_elastico" default="true"/>
+  <xacro:arg name="usar_ros2_control" default="true"/>
+  <xacro:arg name="controladores" default="$(find rover_frugal_control)/config/controladores.yaml"/>
+
+  <xacro:property name="cfg"
+                  value="${xacro.load_yaml('$(find rover_frugal_description)/config/parametros.yaml')}"/>
+  <xacro:property name="R"    value="${cfg['roda']}"/>
+  <xacro:property name="V"    value="${cfg['veiculo']}"/>
+  <xacro:property name="M"    value="${cfg['massas']}"/>
+  <xacro:property name="I"    value="${cfg['inercias']}"/>
+  <xacro:property name="J"    value="${cfg['juntas']}"/>
+  <xacro:property name="C"    value="${cfg['contato']}"/>
+  <xacro:property name="POS"  value="${cfg['posicoes_rodas']}"/>
+  <xacro:property name="ESF"  value="${cfg['colisao_raios']}"/>
+  <xacro:property name="malhas" value="package://rover_frugal_description/meshes"/>
+
+  <xacro:property name="com_aro" value="$(arg aro_elastico)"/>
+
+  <material name="pvc_branco"><color rgba="0.95 0.96 0.98 1.0"/></material>
+  <material name="petg_laranja"><color rgba="1.00 0.42 0.13 1.0"/></material>
+  <material name="csts_ciano"><color rgba="0.00 0.83 1.00 1.0"/></material>
+  <material name="borracha_escura"><color rgba="0.13 0.15 0.19 1.0"/></material>
+  <material name="caixa_translucida"><color rgba="0.85 0.93 0.98 0.55"/></material>
+
+  <!-- ==================================================================== -->
+  <!-- Macros auxiliares                                                    -->
+  <!-- ==================================================================== -->
+
+  <xacro:macro name="inercial" params="massa i:=^ *origin">
+    <inertial>
+      <xacro:insert_block name="origin"/>
+      <mass value="${massa}"/>
+      <inertia ixx="${i['ixx']}" iyy="${i['iyy']}" izz="${i['izz']}"
+               ixy="${i['ixy']}" ixz="${i['ixz']}" iyz="${i['iyz']}"/>
+    </inertial>
+  </xacro:macro>
+
+  <!-- Cadeia de esferas de colisão dos raios curvos.
+       O casco convexo da malha da roda é um disco: usar <mesh> como colisão
+       apagaria a geometria de raios de que todo o projeto depende. -->
+  <xacro:macro name="esferas_raios" params="lista sinal">
+    <xacro:if value="${lista != []}">
+      <collision>
+        <origin xyz="${lista[0][0]} 0 ${sinal * lista[0][1]}" rpy="0 0 0"/>
+        <geometry><sphere radius="${lista[0][2]}"/></geometry>
+      </collision>
+      <xacro:esferas_raios lista="${lista[1:]}" sinal="${sinal}"/>
+    </xacro:if>
+  </xacro:macro>
+
+  <!-- ==================================================================== -->
+  <!-- Corpo                                                                -->
+  <!-- ==================================================================== -->
+  <link name="base_footprint"/>
+
+  <joint name="base_footprint_joint" type="fixed">
+    <parent link="base_footprint"/>
+    <child link="base_link"/>
+    <origin xyz="0 0 ${R['raio_max']}" rpy="0 0 0"/>
+  </joint>
+
+  <!-- base_link tem origem no PLANO DOS EIXOS das rodas.
+       O CG fica `offset_cg_eixo` acima; a caixa começa no vão livre. -->
+  <link name="base_link">
+    <xacro:inercial massa="${M['base']}" i="${I['base']}">
+      <origin xyz="0 0 ${V['offset_cg_eixo']}" rpy="0 0 0"/>
+    </xacro:inercial>
+
+    <visual>
+      <origin xyz="0 0 ${V['vao_livre'] - R['raio_max'] + V['altura_caixa']/2}" rpy="0 0 0"/>
+      <geometry>
+        <box size="${V['profundidade_caixa']} ${V['largura_caixa']} ${V['altura_caixa']}"/>
+      </geometry>
+      <material name="caixa_translucida"/>
+    </visual>
+
+    <!-- Colisão do ventre: é ela que denuncia encalhe na quina do degrau.
+         O vão livre de 190 mm foi dimensionado justamente por esse critério. -->
+    <collision>
+      <origin xyz="0 0 ${V['vao_livre'] - R['raio_max'] + V['altura_caixa']/2}" rpy="0 0 0"/>
+      <geometry>
+        <box size="${V['profundidade_caixa']} ${V['largura_caixa']} ${V['altura_caixa']}"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <!-- Braços em V invertido: visual apenas (massa contabilizada em base_link) -->
+  <xacro:macro name="braco" params="prefixo">
+    <xacro:property name="p" value="${POS[prefixo]}"/>
+    <link name="braco_${prefixo}">
+      <visual>
+        <origin xyz="${(p['abracadeira'][0]+p['vertice'][0])/2}
+                     ${(p['abracadeira'][1]+p['vertice'][1])/2}
+                     ${(p['abracadeira'][2]+p['vertice'][2])/2 - R['raio_max']}"
+                rpy="0 0 0"/>
+        <geometry><sphere radius="0.016"/></geometry>
+        <material name="pvc_branco"/>
+      </visual>
+      <visual>
+        <origin xyz="${p['vertice'][0]} ${p['vertice'][1]} ${p['vertice'][2] - R['raio_max']}"
+                rpy="0 0 0"/>
+        <geometry><mesh filename="${malhas}/junta_vertice.stl"/></geometry>
+        <material name="petg_laranja"/>
+      </visual>
+    </link>
+    <joint name="braco_${prefixo}_joint" type="fixed">
+      <parent link="base_link"/>
+      <child link="braco_${prefixo}"/>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+    </joint>
+  </xacro:macro>
+
+  <!-- ==================================================================== -->
+  <!-- Conjunto de roda: suspensão → esterçamento → tração → C-STS          -->
+  <!-- ==================================================================== -->
+  <xacro:macro name="conjunto_roda" params="prefixo">
+    <xacro:property name="p" value="${POS[prefixo]}"/>
+    <xacro:property name="ex" value="${p['eixo'][0]}"/>
+    <xacro:property name="ey" value="${p['eixo'][1]}"/>
+    <xacro:property name="lado" value="${1 if p['eixo'][1] > 0 else -1}"/>
+
+    <!-- ==== 1. suspensão elástica (passiva, mola + amortecedor) ========== -->
+    <link name="suporte_${prefixo}">
+      <xacro:inercial massa="${M['suporte']}" i="${I['suporte']}">
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+      </xacro:inercial>
+      <visual>
+        <origin xyz="0 0 ${J['suspensao']['curso']/2}" rpy="0 0 0"/>
+        <geometry><cylinder radius="0.010" length="${J['suspensao']['curso']}"/></geometry>
+        <material name="petg_laranja"/>
+      </visual>
+    </link>
+    <joint name="susp_${prefixo}" type="prismatic">
+      <parent link="base_link"/>
+      <child link="suporte_${prefixo}"/>
+      <origin xyz="${ex} ${ey} 0" rpy="0 0 0"/>
+      <axis xyz="0 0 1"/>
+      <limit lower="${J['suspensao']['limite_inferior']}" upper="${J['suspensao']['limite_superior']}"
+             effort="${J['suspensao']['esforco_maximo']}"
+             velocity="${J['suspensao']['velocidade_maxima']}"/>
+      <dynamics damping="${J['suspensao']['amortecimento']}" friction="0.5"/>
+    </joint>
+
+    <!-- ==== 2. esterçamento 4WS (atuado por servo) ======================= -->
+    <link name="manga_${prefixo}">
+      <xacro:inercial massa="${M['manga']}" i="${I['manga']}">
+        <origin xyz="0 0 0.03" rpy="0 0 0"/>
+      </xacro:inercial>
+      <visual>
+        <origin xyz="0 0 0" rpy="0 0 ${0 if lado > 0 else pi}"/>
+        <geometry><mesh filename="${malhas}/manga_4ws.stl"/></geometry>
+        <material name="petg_laranja"/>
+      </visual>
+    </link>
+    <joint name="esterco_${prefixo}" type="revolute">
+      <parent link="suporte_${prefixo}"/>
+      <child link="manga_${prefixo}"/>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <axis xyz="0 0 1"/>
+      <limit lower="${-J['estercamento']['limite_rad']}"
+             upper="${J['estercamento']['limite_rad']}"
+             effort="${J['estercamento']['esforco_maximo']}"
+             velocity="${J['estercamento']['velocidade_maxima']}"/>
+      <dynamics damping="${J['estercamento']['amortecimento']}" friction="0.02"/>
+    </joint>
+
+    <!-- ==== 3. tração 4WD (atuado pelo motorredutor) ===================== -->
+    <link name="cubo_${prefixo}">
+      <xacro:inercial massa="${M['cubo']}" i="${I['cubo']}">
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+      </xacro:inercial>
+      <visual>
+        <origin xyz="0 ${lado * 0.03} 0" rpy="${pi/2} 0 0"/>
+        <geometry><cylinder radius="0.019" length="0.058"/></geometry>
+        <material name="borracha_escura"/>
+      </visual>
+    </link>
+    <joint name="tracao_${prefixo}" type="continuous">
+      <parent link="manga_${prefixo}"/>
+      <child link="cubo_${prefixo}"/>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <axis xyz="0 1 0"/>
+      <limit effort="${J['tracao']['esforco_maximo']}"
+             velocity="${J['tracao']['velocidade_maxima']}"/>
+      <dynamics damping="${J['tracao']['amortecimento']}" friction="${J['tracao']['atrito']}"/>
+    </joint>
+
+    <!-- ==== 4. C-STS (passiva, mola torsional entre cubo e roda) ========= -->
+    <link name="roda_${prefixo}">
+      <xacro:inercial massa="${M['roda']}" i="${I['roda']}">
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+      </xacro:inercial>
+
+      <visual>
+        <origin xyz="0 0 0" rpy="${-lado * pi/2} 0 0"/>
+        <geometry><mesh filename="${malhas}/roda_raios_curvos.stl"/></geometry>
+        <material name="petg_laranja"/>
+      </visual>
+      <visual>
+        <origin xyz="0 0 0" rpy="${-lado * pi/2} 0 0"/>
+        <geometry><mesh filename="${malhas}/espiral_csts.stl"/></geometry>
+        <material name="csts_ciano"/>
+      </visual>
+
+      <xacro:if value="${com_aro}">
+        <visual>
+          <origin xyz="0 0 0" rpy="${pi/2} 0 0"/>
+          <geometry><mesh filename="${malhas}/aro_elastico.stl"/></geometry>
+          <material name="borracha_escura"/>
+        </visual>
+        <!-- Com o aro montado a roda tem superfície contínua de rolamento:
+             um cilindro no raio efetivo (r_max menos a deflexão estática). -->
+        <collision>
+          <origin xyz="0 0 0" rpy="${pi/2} 0 0"/>
+          <geometry>
+            <cylinder radius="${R['raio_com_aro']}" length="${R['largura_com_aro']}"/>
+          </geometry>
+        </collision>
+      </xacro:if>
+
+      <xacro:unless value="${com_aro}">
+        <xacro:esferas_raios lista="${ESF}" sinal="${lado}"/>
+      </xacro:unless>
+    </link>
+    <joint name="csts_${prefixo}" type="revolute">
+      <parent link="cubo_${prefixo}"/>
+      <child link="roda_${prefixo}"/>
+      <!-- Sem deslocamento lateral: o plano da roda define a bitola. -->
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <axis xyz="0 1 0"/>
+      <limit lower="${-J['csts']['limite_rad']}" upper="${J['csts']['limite_rad']}"
+             effort="${J['csts']['esforco_maximo']}"
+             velocity="${J['csts']['velocidade_maxima']}"/>
+      <dynamics damping="${J['csts']['amortecimento']}" friction="0.01"/>
+    </joint>
+
+    <!-- ==== propriedades de contato no Gazebo =========================== -->
+    <gazebo reference="roda_${prefixo}">
+      <mu1>${C['mu_seco']}</mu1>
+      <mu2>${C['mu_seco']}</mu2>
+      <kp>${C['kp_aro'] if com_aro else C['kp_rigido']}</kp>
+      <kd>${C['kd_aro'] if com_aro else C['kd_rigido']}</kd>
+      <minDepth>0.001</minDepth>
+      <maxVel>0.5</maxVel>
+      <material>Gazebo/Orange</material>
+    </gazebo>
+  </xacro:macro>
+
+  <!-- ==================================================================== -->
+  <xacro:braco prefixo="FL"/>
+  <xacro:braco prefixo="FR"/>
+  <xacro:braco prefixo="RL"/>
+  <xacro:braco prefixo="RR"/>
+
+  <xacro:conjunto_roda prefixo="FL"/>
+  <xacro:conjunto_roda prefixo="FR"/>
+  <xacro:conjunto_roda prefixo="RL"/>
+  <xacro:conjunto_roda prefixo="RR"/>
+
+  <!-- Câmera FPV do piloto, no terço superior frontal da caixa -->
+  <link name="camera_fpv"/>
+  <joint name="camera_fpv_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="camera_fpv"/>
+    <origin xyz="${V['profundidade_caixa']/2 + 0.02} 0
+                 ${V['vao_livre'] - R['raio_max'] + V['altura_caixa'] - 0.04}"
+            rpy="0 0 0"/>
+  </joint>
+
+  <!-- IMU no assoalho da caixa, junto da carga -->
+  <link name="imu_link"/>
+  <joint name="imu_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="imu_link"/>
+    <origin xyz="0 0 ${V['vao_livre'] - R['raio_max'] + 0.02}" rpy="0 0 0"/>
+  </joint>
+
+  <gazebo reference="base_link">
+    <mu1>0.6</mu1><mu2>0.6</mu2>
+    <material>Gazebo/BlueTransparent</material>
+  </gazebo>
+
+  <xacro:include filename="$(find rover_frugal_description)/urdf/sensores.gazebo.xacro"/>
+
+  <!-- ==================================================================== -->
+  <!-- ros2_control                                                         -->
+  <!-- ==================================================================== -->
+  <xacro:if value="$(arg usar_ros2_control)">
+    <ros2_control name="RoverFrugalSim" type="system">
+      <hardware>
+        <plugin>gz_ros2_control/GazeboSimSystem</plugin>
+      </hardware>
+
+      <xacro:macro name="interfaces_roda" params="prefixo">
+        <joint name="esterco_${prefixo}">
+          <command_interface name="position">
+            <param name="min">${-J['estercamento']['limite_rad']}</param>
+            <param name="max">${J['estercamento']['limite_rad']}</param>
+          </command_interface>
+          <state_interface name="position"/>
+          <state_interface name="velocity"/>
+          <state_interface name="effort"/>
+        </joint>
+
+        <joint name="tracao_${prefixo}">
+          <command_interface name="velocity">
+            <param name="min">${-J['tracao']['velocidade_maxima']}</param>
+            <param name="max">${J['tracao']['velocidade_maxima']}</param>
+          </command_interface>
+          <state_interface name="position"/>
+          <state_interface name="velocity"/>
+          <state_interface name="effort"/>
+        </joint>
+
+        <!-- Juntas PASSIVAS: expostas com interface de esforço para que o nó
+             `molas_passivas` aplique F = -k·x - c·ẋ. Ver 03_Simulacao/05 §4.2:
+             a rigidez de mola em SDF depende do motor de física, então a lei de
+             mola vive num nó ROS e fica portátil entre simuladores. -->
+        <joint name="susp_${prefixo}">
+          <command_interface name="effort">
+            <param name="min">${-J['suspensao']['esforco_maximo']}</param>
+            <param name="max">${J['suspensao']['esforco_maximo']}</param>
+          </command_interface>
+          <state_interface name="position"/>
+          <state_interface name="velocity"/>
+          <state_interface name="effort"/>
+        </joint>
+
+        <joint name="csts_${prefixo}">
+          <command_interface name="effort">
+            <param name="min">${-J['csts']['esforco_maximo']}</param>
+            <param name="max">${J['csts']['esforco_maximo']}</param>
+          </command_interface>
+          <state_interface name="position"/>
+          <state_interface name="velocity"/>
+          <state_interface name="effort"/>
+        </joint>
+      </xacro:macro>
+
+      <xacro:interfaces_roda prefixo="FL"/>
+      <xacro:interfaces_roda prefixo="FR"/>
+      <xacro:interfaces_roda prefixo="RL"/>
+      <xacro:interfaces_roda prefixo="RR"/>
+    </ros2_control>
+
+    <gazebo>
+      <plugin filename="gz_ros2_control-system"
+              name="gz_ros2_control::GazeboSimROS2ControlPlugin">
+        <parameters>$(arg controladores)</parameters>
+      </plugin>
+    </gazebo>
+  </xacro:if>
+
+</robot>

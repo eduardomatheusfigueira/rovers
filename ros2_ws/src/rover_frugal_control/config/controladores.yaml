@@ -1,0 +1,72 @@
+# ARQUIVO GERADO - nao editar a mao.
+# Fonte: 00_Especificacao_Mestre/parametros_mestres.yaml
+# Gerador: ferramentas/gerar_ros_config.py
+
+controller_manager:
+  ros__parameters:
+    update_rate: 1000
+    use_sim_time: true
+    joint_state_broadcaster:
+      type: joint_state_broadcaster/JointStateBroadcaster
+    esterco_controller:
+      type: position_controllers/JointGroupPositionController
+    tracao_controller:
+      type: velocity_controllers/JointGroupVelocityController
+    passivas_controller:
+      type: effort_controllers/JointGroupEffortController
+esterco_controller:
+  ros__parameters:
+    joints:
+    - esterco_FL
+    - esterco_FR
+    - esterco_RL
+    - esterco_RR
+tracao_controller:
+  ros__parameters:
+    joints:
+    - tracao_FL
+    - tracao_FR
+    - tracao_RL
+    - tracao_RR
+passivas_controller:
+  ros__parameters:
+    joints:
+    - susp_FL
+    - susp_FR
+    - susp_RL
+    - susp_RR
+    - csts_FL
+    - csts_FR
+    - csts_RL
+    - csts_RR
+cinematica_4ws:
+  ros__parameters:
+    entre_eixos: 0.69
+    bitola: 0.6
+    raio_roda: 0.21
+    limite_estercamento_rad: 0.9599310885968813
+    velocidade_servo_rad_s: 5.24
+    velocidade_maxima: 1.2
+    velocidade_escada: 0.25
+    frequencia_hz: 200.0
+    timeout_cmd_vel_s: 0.3
+    use_sim_time: true
+molas_passivas:
+  ros__parameters:
+    rigidez_suspensao: 1000.0
+    amortecimento_suspensao: 25.0
+    curso_suspensao: 0.09
+    rigidez_csts: 12.3
+    amortecimento_csts: 0.08
+    limite_csts_rad: 0.6108652381980153
+    frequencia_hz: 792.0
+    use_sim_time: true
+supervisor:
+  ros__parameters:
+    pitch_critico_plano_deg: 35.0
+    pitch_critico_escada_deg: 52.0
+    roll_critico_deg: 30.0
+    timeout_failsafe_s: 0.3
+    frequencia_hz: 100.0
+    resistencia_motor: 1.1
+    use_sim_time: true

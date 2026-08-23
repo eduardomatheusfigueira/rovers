@@ -29,15 +29,23 @@ jobs:
           python3 ferramentas/gerar_parametros_js.py
           python3 ferramentas/gerar_documentacao.py
           python3 ferramentas/gerar_standalone.py
-          if ! git diff --quiet -- prototipo_3d/parametros.js \
-               00_Especificacao_Mestre/00_Parametros_Mestres.md \
-               prototipo_3d_standalone.html; then
+          python3 ferramentas/gerar_ros_config.py
+          python3 ferramentas/gerar_mundo_gazebo.py
+          ALVOS="prototipo_3d/parametros.js
+                 00_Especificacao_Mestre/00_Parametros_Mestres.md
+                 prototipo_3d_standalone.html
+                 ros2_ws/src/rover_frugal_description/config/parametros.yaml
+                 ros2_ws/src/rover_frugal_control/config/controladores.yaml
+                 ros2_ws/src/rover_frugal_gazebo/worlds"
+          if ! git diff --quiet -- $ALVOS; then
             echo "::error::Artefatos gerados estão fora de sincronia com parametros_mestres.yaml."
-            echo "Rode as três ferramentas de ferramentas/ e faça commit do resultado."
-            git diff --stat -- prototipo_3d/parametros.js \
-              00_Especificacao_Mestre/00_Parametros_Mestres.md prototipo_3d_standalone.html
+            echo "Rode as ferramentas de ferramentas/ e faça commit do resultado."
+            git diff --stat -- $ALVOS
             exit 1
           fi
+
+      - name: Verificar o pacote ROS 2 (sem instalar ROS)
+        run: python -m pytest testes/test_ros_urdf.py testes/test_ros_controle.py -v
 
       - name: Gerar o Relatório de Engenharia
         run: python3 -m simulador_python.main --relatorio --out resultados

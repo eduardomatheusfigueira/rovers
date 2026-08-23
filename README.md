@@ -22,6 +22,7 @@
 | ver **todos os números do projeto num lugar só** | [Parâmetros Mestres](00_Especificacao_Mestre/00_Parametros_Mestres.md) |
 | saber **o que ainda falta provar** | [Requisitos e Rastreabilidade](00_Especificacao_Mestre/01_Requisitos_e_Rastreabilidade.md) |
 | **pilotar** o rover num percurso simulado | [Gêmeo digital 3D](#gêmeo-digital-3d) |
+| simular **física completa com ROS 2** | [Workspace ROS 2 / Gazebo](#ros-2-e-gazebo) |
 | **rodar as contas** você mesmo | [Simulador Python](#simulador-físico-em-python) |
 | avaliar a **proposta institucional** | [Pitch ao Parquetec](04_Proposta_Itaipu_Parquetec/01_Pitch_e_Plano_de_Apoio.md) |
 
@@ -51,8 +52,14 @@ sem fatores de ajuste. Cinco achados alteraram o projeto físico:
 | **Diâmetro da roda** — a roda precisa alcançar o nariz do degrau seguinte, não apenas rolar | Φ300 mm (critério de rolamento em plano) | **Φ420 mm** por marcha síncrona e robustez de fase |
 | **Aro elástico** — sem ele o cubo cai 105 mm por raio em piso plano | "opcional" | **item crítico** |
 | **Curso da suspensão** — dimensionado pela energia da queda de cubo | 35 mm (4,2 g na carga) | **90 mm** (0,8 g) |
-| **Rigidez do C-STS** — não se copia rigidez entre escalas | 0,55 N·m/rad (do artigo → 566° de deflexão) | **10,31 N·m/rad** por semelhança dimensional |
+| **Rigidez do C-STS** — não se copia rigidez entre escalas | 0,55 N·m/rad (do artigo → 674° de deflexão) | **12,30 N·m/rad** por semelhança dimensional |
 | **Classificação cinemática** | δm=2, δs=4, δM=3 (soma 6) | **δm=1, δs=2, δM=3** — não holonômico |
+
+E a geração das malhas para o ROS 2 revelou um sétimo: **as rodas Φ420 pesam
+2,55 kg, não os 1,80 kg orçados** — a massa total subiu para 10,03 kg e puxou
+junto torque de projeto, rigidez do C-STS e margem de tração
+([A-21](00_Especificacao_Mestre/02_Auditoria_Tecnica.md#a-21)). Todos os KPIs
+continuam atendidos, com menos folga.
 
 Mais dois limites operacionais que ninguém tinha visto:
 
@@ -150,6 +157,45 @@ aceleração sentida pelo notebook.
 
 ---
 
+## ROS 2 e Gazebo
+
+Workspace completo em [`ros2_ws/`](ros2_ws/) — **ROS 2 Jazzy + Gazebo Harmonic**:
+
+```bash
+cd ros2_ws && colcon build --symlink-install && source install/setup.bash
+
+ros2 launch rover_frugal_bringup missao.launch.py            # percurso completo
+ros2 launch rover_frugal_bringup ensaio_escada.launch.py     # ensaio instrumentado
+ros2 launch rover_frugal_description visualizar.launch.py    # só a geometria, no RViz
+```
+
+| Pacote | Conteúdo |
+| :--- | :--- |
+| `rover_frugal_description` | URDF/xacro **sem nenhum número** — lê `config/parametros.yaml`, gerado do arquivo mestre; malhas STL geradas do mesmo perfil de raio da física |
+| `rover_frugal_control` | cinemática 4WS, molas passivas (suspensão e C-STS), supervisor de segurança |
+| `rover_frugal_gazebo` | mundos SDF gerados dos parâmetros, ponte `ros_gz`, launch |
+| `rover_frugal_bringup` | missão, ensaios, registrador de telemetria |
+
+Três decisões de modelagem que valem destaque — todas detalhadas em
+[`03_Simulacao/05`](03_Simulacao_e_Prototipacao_Digital/05_ROS2_e_Gazebo.md):
+
+* **O casco convexo de uma roda de raios é um disco.** Usar a malha como colisão
+  faria o motor de física apagar silenciosamente a geometria de raios — e a
+  simulação escalaria escadas que na prática são impossíveis. A colisão é uma
+  cadeia de 81 esferas por roda, com sobreposição garantida.
+* **O aro elástico não colapsa em corpo rígido**, então o modelo tem duas
+  variantes (`aro_elastico:=true|false`) e a limitação é declarada.
+* **As molas passivas ficam num nó ROS, não no SDF** — o que as torna portáteis e
+  impõe um requisito explícito de 1000 Hz na malha de controle.
+
+61 testes validam o pacote **sem ROS instalado** (`xacro` e `yourdfpy` do PyPI):
+massa, inércias, cinemática direta, limites de junta, geometria de colisão, a
+escada do mundo e o passo de integração. A cinemática do nó ROS é comparada com a
+do simulador a cada execução — divergência de 8,9 × 10⁻¹⁶ rad, contra os 0,1° que
+o ensaio ENS-01 admite.
+
+---
+
 ## Mapa da documentação
 
 ```mermaid
@@ -192,6 +238,7 @@ graph TD
 **[03. Simulação e Prototipação Digital](03_Simulacao_e_Prototipacao_Digital/)**
 * [01. Modelagem CAD 3D](03_Simulacao_e_Prototipacao_Digital/01_Plano_de_Modelagem_CAD_3D.md) · [02. Simulação Dinâmica](03_Simulacao_e_Prototipacao_Digital/02_Simulacao_Dinamica_e_Controle.md) · [03. Gêmeo Digital](03_Simulacao_e_Prototipacao_Digital/03_Ambiente_Virtual_e_Digital_Twin.md)
 * **[04. Verificação e Validação do Modelo](03_Simulacao_e_Prototipacao_Digital/04_Verificacao_e_Validacao_do_Modelo.md)**
+* **[05. Simulação Multicorpo em ROS 2 e Gazebo](03_Simulacao_e_Prototipacao_Digital/05_ROS2_e_Gazebo.md)**
 
 **[04. Proposta Itaipu Parquetec](04_Proposta_Itaipu_Parquetec/)**
 * [01. Pitch e Plano de Apoio](04_Proposta_Itaipu_Parquetec/01_Pitch_e_Plano_de_Apoio.md) · [02. Equipe e Infraestrutura](04_Proposta_Itaipu_Parquetec/02_Alocacao_Equipe_e_Infraestrutura.md) · [03. Orçamento e Aporte](04_Proposta_Itaipu_Parquetec/03_Orcamento_e_Aporte_Proprio_1k_USD.md)
@@ -225,9 +272,14 @@ Os originais estão em [`Materiais de apoio`](<Materiais de apoio>).
 python3 ferramentas/gerar_parametros_js.py   # YAML → prototipo_3d/parametros.js
 python3 ferramentas/gerar_documentacao.py    # YAML → 00_Parametros_Mestres.md
 python3 ferramentas/gerar_standalone.py      # prototipo_3d/ → HTML único offline
+python3 ferramentas/gerar_malhas.py          # YAML → malhas STL do pacote ROS
+python3 ferramentas/gerar_ros_config.py      # YAML → parametros.yaml + controladores.yaml
+python3 ferramentas/gerar_mundo_gazebo.py    # YAML → mundos SDF do Gazebo
+python3 ferramentas/gerar_figuras.py         # figuras citadas na documentação
 ```
 
-Rode os três sempre que alterar `parametros_mestres.yaml`.
+Rode todos sempre que alterar `parametros_mestres.yaml` — a integração contínua
+reprova o commit se algum artefato ficar fora de sincronia.
 
 ---
 

@@ -147,10 +147,10 @@ A hipótese de carga correta: **na subida a transferência de carga é para trá
 portanto quem faz o esforço são as rodas **traseiras**.
 
 $$F_{z,tras} = W\left(\frac{l_f}{L}\cos\theta + \frac{h_{CG}}{L}\sin\theta\right)
-= 50{,}8\ \text{N (eixo)} \Rightarrow 25{,}4\ \text{N por roda}$$
+= 61{,}6\ \text{N (eixo)} \Rightarrow 30{,}8\ \text{N por roda}$$
 
 Envelope do torque de pico sobre toda a família de escadas e todas as fases:
-**T = 5,40 N·m por roda** — é este valor que dimensiona a redução do motorredutor
+**T = 6,44 N·m por roda** — é este valor que dimensiona a redução do motorredutor
 (cap. 07) e a rigidez do C-STS (§5).
 
 ### 4.4. Queda de cubo e o curso da suspensão
@@ -184,10 +184,10 @@ do requisito.
    primeira solução que caiba na banda radial do cubo e satisfaça FS ≥ 2.
 
 ```
-C-STS em PETG: b=30,0 mm, t=9,71 mm, L=386 mm, 1,5 voltas (r 20→62 mm)
-  kt teórico / efetivo ..... 12,46 / 10,31 N·m/rad
-  tensão de flexão ......... 11,4 MPa (FS = 4,4)
-  energia no pico .......... 1,41 J
+C-STS em PETG: b=30,0 mm, t=10,30 mm, L=386 mm, 1,5 voltas (r 20→62 mm)
+  kt teórico / efetivo ..... 12,46 / 12,30 N·m/rad
+  tensão de flexão ......... 12,1 MPa (FS = 4,1)
+  energia no pico .......... 1,69 J
   massa .................... 143 g
 ```
 
@@ -195,9 +195,9 @@ Comparação com a cópia direta do artigo:
 
 | | Jeong & Kim (escala do artigo) | Este projeto |
 | :--- | ---: | ---: |
-| $k_t$ | 0,547 N·m/rad | **10,31 N·m/rad** |
-| Deflexão sob T = 5,40 N·m | 566° (enrola por completo) | **30°** ✔ |
-| Espessura da lâmina | 5,0 mm | **9,71 mm** |
+| $k_t$ | 0,547 N·m/rad | **12,30 N·m/rad** |
+| Deflexão sob T = 6,44 N·m | 566° (enrola por completo) | **30°** ✔ |
+| Espessura da lâmina | 5,0 mm | **10,30 mm** |
 
 ---
 

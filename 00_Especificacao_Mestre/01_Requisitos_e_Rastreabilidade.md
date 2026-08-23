@@ -93,6 +93,29 @@
 
 ---
 
+## 5b. Requisitos de simulação e gêmeo digital
+
+| ID | Requisito | Valor | Verif. | Evidência | Situação |
+| :--- | :--- | :--- | :---: | :--- | :---: |
+| **REQ-501** | Descrição do robô sem números duplicados | URDF lê o arquivo mestre | A | `test_massa_total_bate_com_o_arquivo_mestre` | ✅ |
+| **REQ-502** | Inércias fisicamente admissíveis | positivas-definidas, desigualdade triangular | A | `test_inercias_positivas_definidas` | ✅ |
+| **REQ-503** | Colisão preserva a geometria de raios | primitivas, não casco convexo | A | `test_variante_sem_aro_usa_cadeia_de_esferas` | ✅ |
+| **REQ-504** | Cadeia de colisão sem lacunas | sobreposição ≥ 85% | A | `test_esferas_cobrem_o_raio_sem_buracos` | ✅ |
+| **REQ-505** | Encalhe do ventre é detectável em simulação | colisão na cota do vão livre | A | `test_ventre_tem_colisao` | ✅ |
+| **REQ-506** | Escada simulada = escada de projeto | E e P do arquivo mestre | A | `test_escada_do_mundo_e_a_escada_do_projeto` | ✅ |
+| **REQ-507** | Passo de integração resolve o contato | ω·Δt < 0,5 | A | `test_passo_de_integracao_resolve_o_contato` | ✅ |
+| **REQ-508** | Malha de juntas passivas mais rápida que a dinâmica | ≥ 20·√(k/m) | A | `controladores.yaml` (1000 Hz) | ✅ |
+| **REQ-509** | Cinemática do nó ROS = referência analítica | ≤ 0,1° e 1 mm/s (ENS-01) | A | `test_no_ros_bate_com_o_simulador` | ✅ |
+| **REQ-510** | Malhas imprimíveis | sem furos, volume positivo | A | `test_malhas_nao_tem_furos` | ✅ |
+| **REQ-511** | Massa declarada reflete a geometria real | ±20% do volume das malhas | A | `test_massa_das_rodas_bate_com_as_malhas` | ✅ |
+| **REQ-512** | Telemetria de simulação = telemetria do firmware | mesmas colunas | I | `registrador.py` × `02_Engenharia/08` §5 | ✅ |
+| **REQ-513** | Supervisor não aborta subida normal | 43° em escada é operação | A | `test_arfagem_normal_de_escada_nao_dispara_protecao` | ✅ |
+| **REQ-514** | Modo escada bloqueado sem piso seco | confirmação explícita | A | `test_modo_escada_bloqueado_sem_confirmar_piso_seco` | ✅ |
+| **REQ-515** | Rearme após failsafe é sempre explícito | nunca automático | A | `test_rearme_e_sempre_explicito` | ✅ |
+| **REQ-516** | Validação do modelo contra ensaio físico | ±40% no pico de aceleração | S+E | ENS-06 | ⬜ |
+
+---
+
 ## 6. Rastreabilidade inversa: de onde veio cada requisito
 
 ```mermaid
@@ -120,9 +143,9 @@ graph LR
 
 | Situação | Quantidade | Observação |
 | :--- | ---: | :--- |
-| ✅ Verificado por análise/simulação automatizada | 18 | cobertos pela suíte de testes |
+| ✅ Verificado por análise/simulação automatizada | 33 | cobertos por 143 testes automatizados |
 | 🟡 Verificado em simulação, pendente de ensaio físico | 13 | dependem da Fase 4 |
-| ⬜ Pendente | 14 | dependem de hardware montado |
+| ⬜ Pendente | 15 | dependem de hardware montado |
 
 > **Regra de encerramento de fase.** A Fase 2 (engenharia e simulação) só se
 > encerra com todos os requisitos de nível A/S em ✅. A Fase 5 (homologação) só se

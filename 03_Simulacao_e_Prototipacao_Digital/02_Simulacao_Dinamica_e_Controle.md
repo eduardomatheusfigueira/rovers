@@ -1,5 +1,19 @@
 # 02. Simulação Dinâmica, Cinemática Inversa e Física de Contato
-## Modelagem em Webots/Gazebo com Base em Siegwart (2004) e Wong (2022)
+## Cinemática inversa, física de contato e matriz de cenários
+
+> [!IMPORTANT]
+> **Revisão R2 — implementado**
+> Este documento descrevia a intenção de simular em "Webots/Gazebo" com
+> "URDF/SDF", sem que existisse URDF, mundo ou pacote. A implementação real está
+> em [`ros2_ws/`](../ros2_ws/) e as decisões de modelagem em
+> [`05_ROS2_e_Gazebo.md`](05_ROS2_e_Gazebo.md). A ferramenta foi decidida:
+> **ROS 2 Jazzy + Gazebo Harmonic** (a justificativa está em `05`, §1); as
+> menções a Webots foram removidas para não sugerir duas cadeias paralelas.
+>
+> A matriz de cenários de teste abaixo continua válida, agora com mundos
+> executáveis correspondentes.
+
+---
 
 ---
 
@@ -26,7 +40,7 @@ graph LR
         INV --> B2[Cálculo das 4 Velocidades w_i]
         B1 --> SIM_S[Simulação dos 4 Servos 4WS]
         B2 --> SIM_M[Simulação dos 4 Motores 4WD]
-        SIM_S & SIM_M --> PHYS[Motor de Física Multicorpo: Webots/ODE]
+        SIM_S & SIM_M --> PHYS[Motor de Física Multicorpo: Gazebo Harmonic / DART]
     end
 ```
 
@@ -61,4 +75,13 @@ Onde:
 
 ## 4. Integração do Simulador com o Gêmeo Digital
 
-* O código do controlador em C++ testado na simulação no **Webots** é transferido diretamente para o microcontrolador **ESP32** com compilação cruzada (*ESP-IDF / Arduino Core*), garantindo que $100\%$ da lógica de cinemática e limites de segurança desenvolvidos digitalmente sejam executados no protótipo físico sem retrabalho.
+* A lógica de cinemática 4WS foi escrita **uma vez** e é verificada em três
+  implementações: `simulador_python/kinematics.py` (referência analítica),
+  `ros2_ws/.../cinematica_4ws.py` (nó ROS que roda no Gazebo) e
+  `prototipo_3d/fisica.js` (gêmeo digital em tempo real). O teste
+  `test_no_ros_bate_com_o_simulador` compara as duas primeiras a cada execução da
+  suíte — divergência atual: **8,9 × 10⁻¹⁶ rad**, contra o critério de campo de
+  0,1° do ensaio ENS-01.
+* O caminho para o firmware é **micro-ROS no ESP32**, mantendo o mesmo nó de
+  cinemática. Isso substitui a promessa anterior de "transferir o código C++ do
+  Webots", que exigiria reescrita e perderia a verificação cruzada.

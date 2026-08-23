@@ -1,6 +1,22 @@
 # 03. Ambiente Virtual, Gêmeo Digital (*Digital Twin*) e Treinamento de Piloto
 ## Modelagem do Cenário do Itaipu Parquetec e Cockpit de Teleoperação
 
+> [!IMPORTANT]
+> **Revisão R2 — implementado em duas frentes**
+> O cenário virtual do Parquetec existe agora em dois ambientes complementares:
+>
+> | | Onde | Para quê |
+> | :--- | :--- | :--- |
+> | **Gazebo** | [`ros2_ws/src/rover_frugal_gazebo/worlds/percurso_parquetec.sdf`](../ros2_ws/src/rover_frugal_gazebo/worlds/percurso_parquetec.sdf) | física completa, integração do software de controle, ensaios instrumentados |
+> | **Navegador** | [`prototipo_3d/`](../prototipo_3d/) | treinamento do piloto e demonstração — abre por duplo clique, sem instalar nada |
+>
+> Os dois consomem os **mesmos** parâmetros mestres. O protocolo de treinamento
+> abaixo pode ser cumprido em qualquer um dos dois; para a habilitação formal do
+> piloto recomenda-se o de navegador, por não exigir instalação no computador da
+> estação de comando.
+
+---
+
 ---
 
 ## 1. Concepção do Gêmeo Digital (*Digital Twin*)
@@ -13,7 +29,7 @@ Para mitigar riscos de acidentes e quebra de componentes durante os primeiros en
 graph LR
     subgraph Cockpit de Pilotagem
         Rádio[Transmissor RC Físico] --> USB[Adaptador USB Joystick]
-        USB --> SIM[Simulador Virtual Webots/Gazebo]
+        USB --> SIM[Gazebo Harmonic + ROS 2 · ou gêmeo digital 3D no navegador]
     end
 
     subgraph Cenário Virtual Parquetec

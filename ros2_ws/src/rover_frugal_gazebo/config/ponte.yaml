@@ -1,0 +1,43 @@
+# Ponte gz-sim <-> ROS 2.
+# Os tópicos espelham a telemetria do firmware embarcado (02_Engenharia/08 §5),
+# para que dados de simulação e de ensaio de campo sejam comparáveis sem
+# conversão.
+
+- ros_topic_name: "/clock"
+  gz_topic_name: "/clock"
+  ros_type_name: "rosgraph_msgs/msg/Clock"
+  gz_type_name: "gz.msgs.Clock"
+  direction: GZ_TO_ROS
+
+- ros_topic_name: "/imu"
+  gz_topic_name: "/imu"
+  ros_type_name: "sensor_msgs/msg/Imu"
+  gz_type_name: "gz.msgs.IMU"
+  direction: GZ_TO_ROS
+
+- ros_topic_name: "/camera_fpv/image_raw"
+  gz_topic_name: "/camera_fpv"
+  ros_type_name: "sensor_msgs/msg/Image"
+  gz_type_name: "gz.msgs.Image"
+  direction: GZ_TO_ROS
+
+- ros_topic_name: "/camera_fpv/camera_info"
+  gz_topic_name: "/camera_info"
+  ros_type_name: "sensor_msgs/msg/CameraInfo"
+  gz_type_name: "gz.msgs.CameraInfo"
+  direction: GZ_TO_ROS
+
+# Contatos: é o que permite medir onde a roda toca o degrau — no nariz, no piso
+# ou na face do espelho. O apoio na face do espelho é o modo de falha do
+# achado A-01 e precisa ser observável na simulação.
+- ros_topic_name: "/contatos"
+  gz_topic_name: "/contatos"
+  ros_type_name: "ros_gz_interfaces/msg/Contacts"
+  gz_type_name: "gz.msgs.Contacts"
+  direction: GZ_TO_ROS
+
+- ros_topic_name: "/odom_verdade"
+  gz_topic_name: "/model/rover_frugal/odometry"
+  ros_type_name: "nav_msgs/msg/Odometry"
+  gz_type_name: "gz.msgs.Odometry"
+  direction: GZ_TO_ROS

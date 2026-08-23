@@ -1,0 +1,192 @@
+<?xml version="1.0"?>
+<!--
+  ARQUIVO GERADO - nao editar a mao.
+  Fonte:   00_Especificacao_Mestre/parametros_mestres.yaml
+  Gerador: ferramentas/gerar_mundo_gazebo.py
+-->
+<sdf version="1.9">
+  <world name="escada_molhada">
+
+    <physics name="dart" type="dart">
+      <max_step_size>0.0005</max_step_size>
+      <real_time_factor>1.0</real_time_factor>
+    </physics>
+
+    <plugin filename="gz-sim-physics-system" name="gz::sim::systems::Physics"/>
+    <plugin filename="gz-sim-user-commands-system" name="gz::sim::systems::UserCommands"/>
+    <plugin filename="gz-sim-scene-broadcaster-system" name="gz::sim::systems::SceneBroadcaster"/>
+    <plugin filename="gz-sim-sensors-system" name="gz::sim::systems::Sensors">
+      <render_engine>ogre2</render_engine>
+    </plugin>
+    <plugin filename="gz-sim-imu-system" name="gz::sim::systems::Imu"/>
+    <plugin filename="gz-sim-contact-system" name="gz::sim::systems::Contact"/>
+
+    <gravity>0 0 -9.80665</gravity>
+    <scene>
+      <ambient>0.5 0.5 0.55 1</ambient>
+      <background>0.06 0.08 0.12 1</background>
+      <grid>false</grid>
+      <shadows>true</shadows>
+    </scene>
+
+    <light type="directional" name="sol">
+      <pose>0 0 12 0 0 0</pose>
+      <diffuse>1.0 0.97 0.92 1</diffuse>
+      <specular>0.25 0.25 0.25 1</specular>
+      <direction>-0.4 0.3 -0.9</direction>
+      <cast_shadows>true</cast_shadows>
+    </light>
+
+    <model name="piso">
+      <static>true</static>
+      <link name="link">
+        <collision name="colisao">
+          <geometry><plane><normal>0 0 1</normal><size>200 200</size></plane></geometry>
+          <surface>
+            <friction><ode><mu>0.55</mu><mu2>0.55</mu2></ode></friction>
+          </surface>
+        </collision>
+        <visual name="visual">
+          <geometry><plane><normal>0 0 1</normal><size>200 200</size></plane></geometry>
+          <material>
+            <ambient>0.16 0.19 0.24 1</ambient><diffuse>0.16 0.19 0.24 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="ensaio_00">
+      <static>true</static>
+      <pose>2.1500 0.0000 0.0850 0 0 0</pose>
+      <link name="link">
+        <collision name="colisao">
+          <geometry><box><size>0.3000 1.2000 0.1700</size></box></geometry>
+          <surface>
+            <friction><ode><mu>0.55</mu><mu2>0.55</mu2></ode></friction>
+            <contact><ode><kp>1e7</kp><kd>1e3</kd></ode></contact>
+          </surface>
+        </collision>
+        <visual name="visual">
+          <geometry><box><size>0.3000 1.2000 0.1700</size></box></geometry>
+          <material>
+            <ambient>0.4 0.43000000000000005 0.48000000000000004 1</ambient>
+            <diffuse>0.4 0.43000000000000005 0.48000000000000004 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+    <model name="ensaio_01">
+      <static>true</static>
+      <pose>2.4500 0.0000 0.1700 0 0 0</pose>
+      <link name="link">
+        <collision name="colisao">
+          <geometry><box><size>0.3000 1.2000 0.3400</size></box></geometry>
+          <surface>
+            <friction><ode><mu>0.55</mu><mu2>0.55</mu2></ode></friction>
+            <contact><ode><kp>1e7</kp><kd>1e3</kd></ode></contact>
+          </surface>
+        </collision>
+        <visual name="visual">
+          <geometry><box><size>0.3000 1.2000 0.3400</size></box></geometry>
+          <material>
+            <ambient>0.42000000000000004 0.45000000000000007 0.5 1</ambient>
+            <diffuse>0.42000000000000004 0.45000000000000007 0.5 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+    <model name="ensaio_02">
+      <static>true</static>
+      <pose>2.7500 0.0000 0.2550 0 0 0</pose>
+      <link name="link">
+        <collision name="colisao">
+          <geometry><box><size>0.3000 1.2000 0.5100</size></box></geometry>
+          <surface>
+            <friction><ode><mu>0.55</mu><mu2>0.55</mu2></ode></friction>
+            <contact><ode><kp>1e7</kp><kd>1e3</kd></ode></contact>
+          </surface>
+        </collision>
+        <visual name="visual">
+          <geometry><box><size>0.3000 1.2000 0.5100</size></box></geometry>
+          <material>
+            <ambient>0.44 0.47 0.52 1</ambient>
+            <diffuse>0.44 0.47 0.52 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+    <model name="ensaio_03">
+      <static>true</static>
+      <pose>3.0500 0.0000 0.3400 0 0 0</pose>
+      <link name="link">
+        <collision name="colisao">
+          <geometry><box><size>0.3000 1.2000 0.6800</size></box></geometry>
+          <surface>
+            <friction><ode><mu>0.55</mu><mu2>0.55</mu2></ode></friction>
+            <contact><ode><kp>1e7</kp><kd>1e3</kd></ode></contact>
+          </surface>
+        </collision>
+        <visual name="visual">
+          <geometry><box><size>0.3000 1.2000 0.6800</size></box></geometry>
+          <material>
+            <ambient>0.4 0.43000000000000005 0.48000000000000004 1</ambient>
+            <diffuse>0.4 0.43000000000000005 0.48000000000000004 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+    <model name="ensaio_patamar">
+      <static>true</static>
+      <pose>5.2000 0.0000 0.3400 0 0 0</pose>
+      <link name="link">
+        <collision name="colisao">
+          <geometry><box><size>4.0000 2.4000 0.6800</size></box></geometry>
+          <surface>
+            <friction><ode><mu>0.55</mu><mu2>0.55</mu2></ode></friction>
+            <contact><ode><kp>1e7</kp><kd>1e3</kd></ode></contact>
+          </surface>
+        </collision>
+        <visual name="visual">
+          <geometry><box><size>4.0000 2.4000 0.6800</size></box></geometry>
+          <material>
+            <ambient>0.38 0.41 0.46 1</ambient>
+            <diffuse>0.38 0.41 0.46 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+    <model name="meio_fio_ensaio">
+      <static>true</static>
+      <pose>-3.0000 0.0000 0.0750 0 0 0</pose>
+      <link name="link">
+        <collision name="colisao">
+          <geometry><box><size>1.0000 2.0000 0.1500</size></box></geometry>
+          <surface>
+            <friction><ode><mu>0.55</mu><mu2>0.55</mu2></ode></friction>
+            <contact><ode><kp>1e7</kp><kd>1e3</kd></ode></contact>
+          </surface>
+        </collision>
+        <visual name="visual">
+          <geometry><box><size>1.0000 2.0000 0.1500</size></box></geometry>
+          <material>
+            <ambient>0.45 0.46 0.48 1</ambient>
+            <diffuse>0.45 0.46 0.48 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+    <model name="largada">
+      <static>true</static>
+      <pose>0.200 0.000 0.005 0 0 0</pose>
+      <link name="link">
+        <visual name="visual">
+          <geometry><cylinder><radius>0.40</radius><length>0.004</length></cylinder></geometry>
+          <material>
+            <ambient>1.0 0.63 0.0 0.6</ambient><diffuse>1.0 0.63 0.0 0.6</diffuse>
+            <emissive>1.0 0.63 0.0 0.4</emissive>
+          </material>
+        </visual>
+      </link>
+    </model>
+  </world>
+</sdf>

@@ -6,3 +6,8 @@ PyYAML>=6.0
 
 # Somente para rodar a suíte de testes:
 pytest>=7.4
+
+# Ferramentas de geração e verificação do pacote ROS 2 (não exigem ROS instalado):
+xacro>=2.0            # expande o URDF/xacro
+yourdfpy>=0.0.56      # carrega e valida o URDF (cinemática direta, inércias)
+trimesh>=4.0          # gera e verifica as malhas STL

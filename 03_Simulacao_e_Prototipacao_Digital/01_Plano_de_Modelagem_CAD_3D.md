@@ -41,7 +41,7 @@ graph LR
 | **CAD-05** | *Motor-Mount-Bracket* | Suporte do motorredutor DC com flange de fixação no tubo de PVC inferior | PETG / PLA+ | 50% |
 | **CAD-06** | *Elastic-Tension-Spool* | Carretel pino-guia para ancoragem dos elásticos comuns de escritório | PLA+ / PETG | 100% |
 | **CAD-07** | *Elastic-Rim-Ring* (**CRÍTICO**) | Aro elástico externo: fecha a superfície de rolamento no plano e colapsa localmente na quina do degrau. Sem ele, o cubo cai 105 mm por raio em piso plano | TPU 95A ou câmara de ar 20" | 100% |
-| **CAD-08** | *CSTS-Spiral* | Mola espiral plana do cubo: b = 30 mm, t = 9,71 mm, 1,5 voltas (r 20→62 mm), $k_t$ = 10,31 N·m/rad | PETG | 100% |
+| **CAD-08** | *CSTS-Spiral* | Mola espiral plana do cubo: b = 30 mm, t = 10,30 mm, 1,5 voltas (r 20→62 mm), $k_t$ = 12,30 N·m/rad | PETG | 100% |
 
 ---
 

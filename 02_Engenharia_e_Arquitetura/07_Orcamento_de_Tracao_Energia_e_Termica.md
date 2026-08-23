@@ -32,21 +32,22 @@ $$T_{saida} = T_{rotor}\cdot i \cdot \eta_{red}, \qquad
 
 ### 1.1. Por que 1:172
 
-O torque exigido no pior caso é **5,40 N·m por roda** (§4.3 do documento 06). Na
+O torque exigido no pior caso é **6,44 N·m por roda** (§4.3 do documento 06). Na
 velocidade de escada (0,25 m/s → 1,14 rad/s na saída, 16% da rotação a vazio) o
 motor entrega ~84% do stall:
 
 | Redução | Stall na saída | Disponível a 0,25 m/s | Margem | $v_{max}$ |
 | ---: | ---: | ---: | ---: | ---: |
-| 1:100 | 7,26 N·m | 6,55 N·m | 1,21 ✘ | 2,64 m/s |
-| 1:131 | 9,51 N·m | 8,29 N·m | 1,54 ⚠ | 2,01 m/s |
-| **1:172** | **12,49 N·m** | **10,38 N·m** | **1,92** ✔ | **1,53 m/s** |
-| 1:270 | 19,60 N·m | 14,42 N·m | 2,67 ✔ | 0,98 m/s ✘ |
+| 1:100 | 7,26 N·m | 6,55 N·m | 1,02 ✘ | 2,64 m/s |
+| 1:131 | 9,51 N·m | 8,29 N·m | 1,29 ✘ | 2,01 m/s |
+| **1:172** | **12,49 N·m** | **10,38 N·m** | **1,61** ✔ | **1,53 m/s** |
+| 1:270 | 19,60 N·m | 14,42 N·m | 2,24 ✔ | 0,98 m/s ✘ |
 
-1:131 atenderia por 0,04 de margem — muito pouco para absorver a incerteza de
-$\eta_{red}$ e a variação de lote. **1:172** é a escolha: margem de 1,92 e ainda
-1,53 m/s de velocidade máxima, acima da meta de 1,0 m/s. 1:270 sacrificaria a
-velocidade em terreno plano, que é 95% da missão.
+1:131 **não** atende (1,29 < 1,50) depois da correção de massa do achado A-21 —
+o que mostra por que a margem de KPI existe. **1:172** é a escolha: margem de
+**1,61** e ainda 1,53 m/s de velocidade máxima, acima da meta de 1,0 m/s. 1:270
+daria mais margem de torque, mas sacrificaria a velocidade em terreno plano —
+que é 95% da missão.
 
 ---
 
@@ -89,7 +90,7 @@ Percurso completo de `05_Execucao/03`, integrado trecho a trecho:
 | **TOTAL** | **589 m** | **12,2 min** | — | **1,67** | pico 27,7 A | **9,1 Wh** |
 
 * Consumo: **15% da energia útil** — a missão não é limitada por energia.
-* Autonomia em ciclo misto (75% plano, 20% rampa, 5% escada): **64 min**
+* Autonomia em ciclo misto (75% plano, 20% rampa, 5% escada): **60 min**
   (KPI ≥ 30 min, meta 45) ✔
 
 ---

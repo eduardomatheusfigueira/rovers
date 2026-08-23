@@ -38,6 +38,8 @@
 | [A-18](#a-18) | `prototipo_3d_standalone.html` era cópia manual divergente | 🟡 | Resolvido — passou a ser build |
 | [A-19](#a-19) | Economia "de até 75%" contra skid-steer sem base | 🟡 | Resolvido — modelo de Wong |
 | [A-20](#a-20) | Ausência de rastreabilidade requisito → verificação | 🔵 | Resolvido — matriz de requisitos |
+| [A-21](#a-21) | Massa das rodas subestimada em 41% | 🟠 | Resolvido — reconciliada com as malhas |
+| [A-22](#a-22) | ROS 2, Gazebo, URDF e gêmeo digital só existiam como menção | 🟠 | Resolvido — workspace implementado |
 
 ---
 
@@ -543,6 +545,103 @@ responder "qual ensaio prova o requisito de choque na carga?".
 **Resolução.** [`01_Requisitos_e_Rastreabilidade.md`](01_Requisitos_e_Rastreabilidade.md)
 com identificadores REQ-###, método de verificação (análise, simulação, ensaio ou
 demonstração), artefato de evidência e situação atual de cada requisito.
+
+---
+
+<a id="a-21"></a>
+## A-21 🟠 Massa das rodas subestimada em 41%
+
+**Como apareceu.** Ao gerar as malhas STL para o pacote ROS 2 a partir do mesmo
+perfil paramétrico usado pela física, o volume de material das peças ficou
+disponível — e pôde ser comparado com o orçamento de massa declarado.
+
+**O que estava escrito.** `massas.rodas_conjunto: 1.80` kg, um valor estimado
+antes de a geometria existir.
+
+**Medido.** Considerando preenchimento real de impressão (raios e lâmina do C-STS
+a 100%, cubos e mangas a ~50%) e o aro como casca fina, cada roda completa pesa:
+
+| Peça | Volume sólido | Material efetivo | Massa |
+| :--- | ---: | ---: | ---: |
+| Roda (raios + cubo + nervuras + pastilhas) | 328 cm³ | 236 cm³ PETG | 300 g |
+| Espiral C-STS | 204 cm³ | 163 cm³ PETG | 207 g |
+| Aro elástico (casca de 1,5 mm) | 310 cm³ | 108 cm³ TPU | 130 g |
+| **Total por roda** | | | **637 g** |
+
+**4 × 637 g = 2,55 kg**, contra 1,80 kg orçados — **+41%**.
+
+**Propagação.** Corrigidas também as massas de tração (motorredutores 1:172 são
+mais pesados), esterçamento (mangas impressas) e bateria (8 células 26650):
+
+| | R2 inicial | R2 corrigido |
+| :--- | ---: | ---: |
+| Massa seca | 6,22 kg | **7,53 kg** |
+| Massa total (com carga) | 8,72 kg | **10,03 kg** |
+| Carga por roda traseira na escada | 25,4 N | **30,8 N** |
+| Torque de projeto | 5,40 N·m | **6,44 N·m** |
+| Rigidez do C-STS | 10,31 N·m/rad | **12,30 N·m/rad** |
+| Espessura da lâmina | 9,71 mm | **10,30 mm** |
+
+**Verificações refeitas — todas continuam atendidas:**
+
+| Requisito | Antes | Depois | Limite |
+| :--- | ---: | ---: | ---: |
+| Robustez de fase na família de Blondel | 100% | **100%** | 100% |
+| Margem de torque na escada | 1,92 | **1,61** | ≥ 1,50 ✔ |
+| Energia da missão | 15% | **15%** | ≤ 80% ✔ |
+| Autonomia em ciclo misto | 64 min | **60 min** | ≥ 30 min ✔ |
+| Tombamento longitudinal | 52,6° | **52,3°** | ≥ 39,5° ✔ |
+| Curso de suspensão exigido pela energia de queda | 62 mm | **66 mm** | 90 mm ✔ |
+
+**Resolução.** A massa deixou de ser declarada às cegas: um teste
+(`test_massa_das_rodas_bate_com_as_malhas`) reprova o arquivo mestre se ele
+divergir mais de 20% do volume das malhas geradas.
+
+> **Lição de método.** A massa só ficou verificável quando existiu geometria. É um
+> argumento a favor de gerar CAD cedo — não pela peça, mas pelos números que ela
+> revela.
+
+---
+
+<a id="a-22"></a>
+## A-22 🟠 ROS 2, Gazebo, URDF e gêmeo digital eram só menções
+
+**O que estava escrito.** `03_Simulacao/02` prometia "modelagem multicorpo
+(URDF/SDF)" com "motor de física Webots/ODE"; `03_Simulacao/03` prometia um
+gêmeo digital do Parquetec com cockpit de pilotagem; `03_Simulacao/01` previa
+"exportação STL/STEP/URDF".
+
+**O que existia.** Nada disso. Nenhum arquivo URDF, nenhum mundo, nenhum pacote
+ROS, nenhuma malha. Além disso a documentação oscilava entre **Webots** e
+**Gazebo** sem decidir — duas cadeias de ferramentas incompatíveis mencionadas
+como se fossem intercambiáveis.
+
+**Resolução.** Workspace ROS 2 completo em [`ros2_ws/`](../ros2_ws/), com quatro
+pacotes, e a ferramenta decidida: **ROS 2 Jazzy + Gazebo Harmonic** (justificativa
+em [`03_Simulacao/05`](../03_Simulacao_e_Prototipacao_Digital/05_ROS2_e_Gazebo.md) §1).
+
+O URDF é **escrito à mão mas sem nenhum número**: carrega
+`config/parametros.yaml`, gerado do arquivo mestre. Malhas e mundos idem.
+
+Três decisões de modelagem que a implementação exigiu e que valem registro:
+
+1. **O casco convexo de uma roda de raios é um disco.** Usar a malha como colisão
+   faria o motor de física apagar silenciosamente a geometria de raios — e a
+   simulação escalaria qualquer escada, inclusive as que o achado A-01 mostra
+   serem impossíveis. A colisão é uma cadeia de 81 esferas por roda, com
+   espaçamento adaptativo que garante sobreposição.
+2. **O aro elástico não colapsa em corpo rígido.** São duas variantes do modelo,
+   e a transição entre elas fica com o modelo Python. Declarado como limitação.
+3. **Molas passivas num nó ROS, não no SDF.** `<spring_stiffness>` depende do
+   motor de física; a lei de mola num nó é portátil e usa as mesmas constantes do
+   dimensionamento. Isso trouxe um requisito explícito: a malha precisa rodar a
+   **1000 Hz**, não aos 100 Hz habituais de um nó ROS.
+
+**Verificação sem ROS instalado.** 61 testes expandem o xacro com `xacro` do
+PyPI, carregam o URDF com `yourdfpy` e conferem massa, inércias, cinemática
+direta, limites de junta, geometria de colisão, a escada do mundo e o passo de
+integração. A cinemática do nó ROS é comparada com a do simulador a cada
+execução: divergência de **8,9 × 10⁻¹⁶ rad** (o ensaio ENS-01 admite 0,1°).
 
 ---
 

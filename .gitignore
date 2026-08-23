@@ -25,3 +25,8 @@ resultados/
 
 # Ferramentas de teste
 node_modules/
+
+# Artefatos de build do ROS 2
+ros2_ws/build/
+ros2_ws/install/
+ros2_ws/log/

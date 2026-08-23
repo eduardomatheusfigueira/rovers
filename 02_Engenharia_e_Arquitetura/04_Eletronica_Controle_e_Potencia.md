@@ -45,7 +45,7 @@ graph TD
 
 ## 2. Dimensionamento de Tração e Curva de Potência (Wong, 2022)
 
-Para garantir que o UGV vença rampas e escadas de inclinação $\theta = 35^\circ$ com massa total $M = 10\text{ kg}$ e velocidade de cruzeiro $v = 1,0\text{ m/s}$, calcula-se o esforço trativo total conforme *J. Y. Wong (Theory of Ground Vehicles, Cap. 3)*:
+Para garantir que o UGV vença rampas e escadas de inclinação $\theta = 35^\circ$ com massa total $M = 10{,}03\text{ kg}$ e velocidade de cruzeiro $v = 1,0\text{ m/s}$, calcula-se o esforço trativo total conforme *J. Y. Wong (Theory of Ground Vehicles, Cap. 3)*:
 
 $$F_{tracao\_total} = W \sin\theta + f_r W \cos\theta + \frac{W}{g} a_x$$
 
@@ -61,7 +61,7 @@ $$F_{tracao\_total} = W \sin\theta + f_r W \cos\theta + \frac{W}{g} a_x$$
 > **Superado em R2.** A tabela acima usa $r_{roda} = 0,10$ m (o resto do projeto
 > usava 0,15 m) e massa de 10 kg (o simulador usava 7,5 kg), e ignora o torque
 > **geométrico de içamento** sobre o nariz do degrau, que é o caso dimensionante.
-> Com o modelo completo: torque exigido de **5,40 N·m por roda**, redução
+> Com o modelo completo: torque exigido de **6,44 N·m por roda**, redução
 > **1:172**, stall de **12,49 N·m** e margem de **1,92**. Ver
 > [`07_Orcamento_de_Tracao_Energia_e_Termica.md`](07_Orcamento_de_Tracao_Energia_e_Termica.md).
 

@@ -42,14 +42,14 @@ parametros_mestres.yaml
 
 ```
 Variante ativa .............. v2_sincrona
-Massa total (nominal) ....... 8.72 kg  (85.5 N)
+Massa total (nominal) ....... 10.03 kg  (98.4 N)
 Entre-eixos x bitola ........ 690 x 600 mm
-Altura do CG ................ 264 mm
-Tombamento long. / lat. ..... 52.6° / 48.6°
+Altura do CG ................ 266 mm
+Tombamento long. / lat. ..... 52.3° / 48.4°
 Escada de referência ........ E=170 mm, P=300 mm, 2E+P=64.0 cm, passo D=344.8 mm, 29.5°
 Roda ........................ N=3 raios, r_max=210 mm (Φ420 mm), r_cubo=70 mm
 Alcance nariz-a-nariz ....... 363.7 mm (exigido 344.8 mm) -> SÍNCRONA
-C-STS ....................... kt_projeto=10.31 N·m/rad (artigo: 0.55 N·m/rad em outra escala)
+C-STS ....................... kt_projeto=12.30 N·m/rad (artigo: 0.55 N·m/rad em outra escala)
 Torque de stall por roda .... 12.49 N·m (redução 1:172)
 Pack de bateria ............. 4S2P LiFePO4, 6.0 Ah, 77 Wh (61 Wh úteis)
 Cinemática (Siegwart) ....... δm=1, δs=2, δM=3 (holonômico: não)
@@ -65,9 +65,9 @@ Cinemática (Siegwart) ....... δm=1, δs=2, δM=3 (holonômico: não)
 | Marcha síncrona: D ≤ 2·r_max·sin(π/N) | 344.8 ≤ 363.7 mm — ✔ |
 | Entre-eixos travado em fase (L = k·D) | 0.690 = 2·0.3448 — ✔ |
 | Vão livre do ventre > espelho do degrau | 190 > 170 mm — ✔ |
-| Pêndulo estável (CG abaixo da fixação) | braço = 93 mm — ✔ |
+| Pêndulo estável (CG abaixo da fixação) | braço = 91 mm — ✔ |
 | δM = δm + δs | 3 = 1 + 2 — ✔ |
-| Margem de tombamento na escada ≥ KPI | 23.0° ≥ 10° — ✔ |
+| Margem de tombamento na escada ≥ KPI | 22.8° ≥ 10° — ✔ |
 | Atrito exigido na escada < disponível (seco) | 0.72 < 0.85 — ✔ |
 
 Essas verificações são executadas como testes em `testes/test_parametros.py`.
@@ -140,14 +140,14 @@ Essas verificações são executadas como testes em `testes/test_parametros.py`.
 | `altura_fixacao_pendular` | 0.357 |  |
 | `vao_livre_ventre` | 0.19 |  |
 | `folga_ventre_medida` | 0.079 |  |
-| `braco_pendular` | 0.09277 |  |
+| `braco_pendular` | 0.09071 |  |
 | `amortecimento_pendular` | 4.5 |  |
-| `peso_total_N` | 85.51 | N |
-| `altura_cg_total` | 0.2642 |  |
+| `peso_total_N` | 98.36 | N |
+| `altura_cg_total` | 0.2663 |  |
 | `lf` | 0.345 |  |
 | `lr` | 0.345 |  |
-| `angulo_tombamento_long_deg` | 52.55 |  |
-| `angulo_tombamento_lat_deg` | 48.63 |  |
+| `angulo_tombamento_long_deg` | 52.34 |  |
+| `angulo_tombamento_lat_deg` | 48.41 |  |
 | `pendulo_estavel` | sim |  |
 
 ### massas
@@ -155,17 +155,17 @@ Essas verificações são executadas como testes em `testes/test_parametros.py`.
 | Parâmetro | Valor | Unid. |
 | :--- | ---: | :--- |
 | `chassi_pvc` | 1.3 |  |
-| `rodas_conjunto` | 1.8 |  |
-| `tracao_conjunto` | 0.9 |  |
-| `estercamento_conjunto` | 0.45 |  |
+| `rodas_conjunto` | 2.55 |  |
+| `tracao_conjunto` | 0.92 |  |
+| `estercamento_conjunto` | 0.85 |  |
 | `eletronica_potencia` | 0.55 |  |
-| `bateria` | 0.62 |  |
+| `bateria` | 0.76 |  |
 | `caixa_organizadora` | 0.6 |  |
 | `carga_util_nominal` | 2.5 |  |
 | `carga_util_maxima` | 3 |  |
-| `massa_seca` | 6.22 |  |
-| `massa_total` | 8.72 | kg |
-| `massa_total_maxima` | 9.22 |  |
+| `massa_seca` | 7.53 |  |
+| `massa_total` | 10.03 | kg |
+| `massa_total_maxima` | 10.53 |  |
 
 ### roda
 
@@ -216,20 +216,20 @@ Essas verificações são executadas como testes em `testes/test_parametros.py`.
 | `modulo_young_petg` | 2.100e+09 |  |
 | `material` | PETG |  |
 | `largura_b` | 0.03 |  |
-| `espessura_t` | 0.00971 |  |
+| `espessura_t` | 0.0103 |  |
 | `comprimento_desenrolado_L` | 0.386 |  |
 | `raio_interno_espiral` | 0.02 |  |
 | `raio_externo_espiral` | 0.062 |  |
-| `torque_projeto` | 5.4 | N·m |
+| `torque_projeto` | 6.44 | N·m |
 | `deflexao_projeto_deg` | 30 |  |
-| `kt_projeto` | 10.31 | N·m/rad |
+| `kt_projeto` | 12.3 | N·m/rad |
 | `kt_empirico` | 0.547 |  |
 | `fator_correcao_empirico` | 0.828 |  |
 | `amortecimento_ct` | 0.08 |  |
 | `deflexao_maxima_deg` | 35 |  |
 | `inercia_roda` | 0.0125 |  |
 | `modulo_young` | 2.100e+09 |  |
-| `kt_teorico` | 12.45 |  |
+| `kt_teorico` | 14.86 |  |
 | `deflexao_maxima_rad` | 0.6109 |  |
 
 ### suspensao_elastica

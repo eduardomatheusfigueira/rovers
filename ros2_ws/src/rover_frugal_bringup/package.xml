@@ -1,0 +1,25 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>rover_frugal_bringup</name>
+  <version>2.0.0</version>
+  <description>
+    Integração do Rover Frugal: launch da missão completa, ensaios instrumentados
+    e registrador de telemetria compatível com o firmware embarcado.
+  </description>
+  <maintainer email="eduardomatheusfigueira@gmail.com">Eduardo Matheus Figueira</maintainer>
+  <license>TODO: definir (ver README, seção Licença)</license>
+
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>nav_msgs</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
+  <exec_depend>rover_frugal_description</exec_depend>
+  <exec_depend>rover_frugal_control</exec_depend>
+  <exec_depend>rover_frugal_gazebo</exec_depend>
+  <exec_depend>teleop_twist_keyboard</exec_depend>
+  <exec_depend>rosbag2</exec_depend>
+
+  <export><build_type>ament_python</build_type></export>
+</package>

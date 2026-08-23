@@ -3,7 +3,7 @@
 
 > [!IMPORTANT]
 > **Revisão R2 — parcialmente superado**
-> A teoria CCS/DCS e o conceito do C-STS continuam válidos, mas o **dimensionamento** deste documento foi refeito: a roda passou de Φ300 mm para **Φ420 mm**, a rigidez do C-STS de 0,547 para **10,31 N·m/rad** e o curso da suspensão de 35 para **90 mm**. Ver [`06_Sintese_da_Roda_e_Geometria_de_Escalada.md`](06_Sintese_da_Roda_e_Geometria_de_Escalada.md).
+> A teoria CCS/DCS e o conceito do C-STS continuam válidos, mas o **dimensionamento** deste documento foi refeito: a roda passou de Φ300 mm para **Φ420 mm**, a rigidez do C-STS de 0,547 para **12,30 N·m/rad** e o curso da suspensão de 35 para **90 mm**. Ver [`06_Sintese_da_Roda_e_Geometria_de_Escalada.md`](06_Sintese_da_Roda_e_Geometria_de_Escalada.md).
 >
 > Parâmetros vigentes: [`00_Especificacao_Mestre/00_Parametros_Mestres.md`](../00_Especificacao_Mestre/00_Parametros_Mestres.md) ·
 > Achados: [`02_Auditoria_Tecnica.md`](../00_Especificacao_Mestre/02_Auditoria_Tecnica.md)
@@ -89,12 +89,12 @@ Onde:
 
 > **⚠️ Atenção à escala.** A tabela abaixo reproduz os valores **do artigo**, medidos
 > no robô de bancada de Jeong & Kim. Aplicá-los diretamente a este rover seria um
-> erro grosseiro: com $r_{max} = 210$ mm e torque de pico de 5,40 N·m, uma mola de
-> 0,547 N·m/rad sofreria **566° de deflexão** — enrolaria por completo já no
+> erro grosseiro: com $r_{max} = 210$ mm e torque de pico de 6,44 N·m, uma mola de
+> 0,547 N·m/rad sofreria **674° de deflexão** — enrolaria por completo já no
 > primeiro degrau. O que se transporta do artigo é o **método** e o **fator de
 > correção 0,828** entre rigidez teórica e experimental (perda de rigidez do FDM),
-> não o valor absoluto. A espiral deste projeto (b = 30 mm, t = 9,71 mm,
-> L = 386 mm, $k_t$ = 10,31 N·m/rad) é dimensionada em
+> não o valor absoluto. A espiral deste projeto (b = 30 mm, t = 10,30 mm,
+> L = 386 mm, $k_t$ = 12,30 N·m/rad) é dimensionada em
 > [`06 §5`](06_Sintese_da_Roda_e_Geometria_de_Escalada.md).
 
 | Variante do C-STS | Espessura ($t$) | Rigidez Teórica ($k_t$) | Rigidez Experimental Medida | Comportamento em Teste de Escada |

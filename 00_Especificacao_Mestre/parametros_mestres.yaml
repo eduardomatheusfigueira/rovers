@@ -80,12 +80,17 @@ veiculo:
   amortecimento_pendular: 4.5
 
 massas:
-  chassi_pvc: 1.30
-  rodas_conjunto: 1.80        # 4 rodas Φ420 em PETG + cubos + C-STS + aros elásticos
-  tracao_conjunto: 0.90       # 4 motorredutores + acopladores
-  estercamento_conjunto: 0.45 # 4 servos + mangas
+  # Massas reconciliadas com o VOLUME DAS MALHAS geradas em
+  # ros2_ws/src/rover_frugal_description/meshes/, considerando preenchimento de
+  # impressão real (raios e lâmina do C-STS a 100%, cubos e mangas a ~50%) e o
+  # aro como casca fina. Verificado por
+  # testes/test_ros_urdf.py::test_massa_das_rodas_bate_com_as_malhas.
+  chassi_pvc: 1.30            # tubos de PVC + juntas de vértice + abraçadeiras
+  rodas_conjunto: 2.55        # 4x (roda PETG 300 g + C-STS 207 g + aro 130 g)
+  tracao_conjunto: 0.92       # 4 motorredutores 1:172 (210 g) + acopladores
+  estercamento_conjunto: 0.85 # 4 servos (60 g) + 4 mangas impressas (150 g)
   eletronica_potencia: 0.55
-  bateria: 0.62
+  bateria: 0.76               # 8 células 26650 LiFePO4 (85 g) + BMS e chicote
   caixa_organizadora: 0.60
   carga_util_nominal: 2.50    # notebook corporativo + fonte
   carga_util_maxima: 3.00
@@ -144,13 +149,13 @@ csts:                          # Estágio 1: torsional no cubo (Jeong & Kim, 202
   modulo_young_petg: 2.1e+9
   material: "PETG"
   largura_b: 0.030             # largura axial da lâmina espiral [m]
-  espessura_t: 0.00971         # espessura da lâmina [m]
+  espessura_t: 0.01030         # espessura da lâmina [m]
   comprimento_desenrolado_L: 0.386   # comprimento desenrolado (1,5 voltas) [m]
   raio_interno_espiral: 0.020
   raio_externo_espiral: 0.062
-  torque_projeto: 5.40         # N·m — envelope do pico quase-estático em toda a família de escadas
+  torque_projeto: 6.44         # N·m — envelope do pico quase-estático em toda a família de escadas
   deflexao_projeto_deg: 30.0
-  kt_projeto: 10.31            # N·m/rad — rigidez efetiva de projeto
+  kt_projeto: 12.30            # N·m/rad — rigidez efetiva de projeto
   kt_empirico: 0.547           # N·m/rad — REFERÊNCIA do artigo (t=5 mm, escala do artigo)
   fator_correcao_empirico: 0.828  # kt_emp/kt_teo do artigo: perda de rigidez do FDM
   amortecimento_ct: 0.080      # N·m·s/rad
