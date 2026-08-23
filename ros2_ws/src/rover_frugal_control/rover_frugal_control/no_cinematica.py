@@ -66,8 +66,12 @@ class NoCinematica4WS(Node):
 
         self.pub_esterco = self.create_publisher(
             Float64MultiArray, "/esterco_controller/commands", 10)
+        # A cinemática publica VELOCIDADE DESEJADA de roda; quem converte em
+        # esforço é o nó `tracao`, que aplica a curva do motorredutor. Comandar
+        # o controlador de junta direto daria ao motor simulado torque de stall
+        # em qualquer rotação.
         self.pub_tracao = self.create_publisher(
-            Float64MultiArray, "/tracao_controller/commands", 10)
+            Float64MultiArray, "/tracao/velocidade_desejada", 10)
         self.pub_residuo = self.create_publisher(Float64MultiArray, "~/residuo", 10)
         self.pub_estado = self.create_publisher(String, "~/estado", 10)
 

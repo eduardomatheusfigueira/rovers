@@ -24,6 +24,7 @@ setup(
         "console_scripts": [
             f"cinematica_4ws = {nome}.no_cinematica:main",
             f"molas_passivas = {nome}.no_molas_passivas:main",
+            f"tracao = {nome}.no_tracao:main",
             f"supervisor = {nome}.no_supervisor:main",
         ],
     },

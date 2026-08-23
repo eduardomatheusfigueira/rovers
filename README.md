@@ -172,7 +172,7 @@ ros2 launch rover_frugal_description visualizar.launch.py    # só a geometria, 
 | Pacote | Conteúdo |
 | :--- | :--- |
 | `rover_frugal_description` | URDF/xacro **sem nenhum número** — lê `config/parametros.yaml`, gerado do arquivo mestre; malhas STL geradas do mesmo perfil de raio da física |
-| `rover_frugal_control` | cinemática 4WS, molas passivas (suspensão e C-STS), supervisor de segurança |
+| `rover_frugal_control` | cinemática 4WS, tração com a curva real do motorredutor, molas passivas (suspensão e C-STS), supervisor de segurança |
 | `rover_frugal_gazebo` | mundos SDF gerados dos parâmetros, ponte `ros_gz`, launch |
 | `rover_frugal_bringup` | missão, ensaios, registrador de telemetria |
 
@@ -187,8 +187,12 @@ Três decisões de modelagem que valem destaque — todas detalhadas em
   variantes (`aro_elastico:=true|false`) e a limitação é declarada.
 * **As molas passivas ficam num nó ROS, não no SDF** — o que as torna portáteis e
   impõe um requisito explícito de 1000 Hz na malha de controle.
+* **A tração é comandada por esforço, não por velocidade.** Com interface de
+  velocidade o motor simulado teria torque de stall a 1,53 m/s e o rover subiria
+  escadas que o motorredutor real não sustenta — a margem de torque de 1,61
+  jamais seria exercida pela simulação.
 
-61 testes validam o pacote **sem ROS instalado** (`xacro` e `yourdfpy` do PyPI):
+74 testes validam o pacote **sem ROS instalado** (`xacro` e `yourdfpy` do PyPI):
 massa, inércias, cinemática direta, limites de junta, geometria de colisão, a
 escada do mundo e o passo de integração. A cinemática do nó ROS é comparada com a
 do simulador a cada execução — divergência de 8,9 × 10⁻¹⁶ rad, contra os 0,1° que

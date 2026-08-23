@@ -39,6 +39,7 @@
   <xacro:property name="C"    value="${cfg['contato']}"/>
   <xacro:property name="POS"  value="${cfg['posicoes_rodas']}"/>
   <xacro:property name="ESF"  value="${cfg['colisao_raios']}"/>
+  <xacro:property name="PONTAS" value="${cfg['colisao_pontas']}"/>
   <xacro:property name="malhas" value="package://rover_frugal_description/meshes"/>
 
   <xacro:property name="com_aro" value="$(arg aro_elastico)"/>
@@ -65,6 +66,20 @@
   <!-- Cadeia de esferas de colisão dos raios curvos.
        O casco convexo da malha da roda é um disco: usar <mesh> como colisão
        apagaria a geometria de raios de que todo o projeto depende. -->
+  <!-- Pontas dos raios: colisões NOMEADAS, para o sensor de contato referenciar.
+       É a ponta que engata no nariz do degrau; saber onde ela toca (nariz, piso
+       ou face do espelho) é o que distingue "subiu" de "escorregou". -->
+  <xacro:macro name="esferas_pontas" params="prefixo lista sinal indice:=0">
+    <xacro:if value="${lista != []}">
+      <collision name="ponta_${prefixo}_${indice}">
+        <origin xyz="${lista[0][0]} 0 ${sinal * lista[0][1]}" rpy="0 0 0"/>
+        <geometry><sphere radius="${lista[0][2]}"/></geometry>
+      </collision>
+      <xacro:esferas_pontas prefixo="${prefixo}" lista="${lista[1:]}"
+                            sinal="${sinal}" indice="${indice + 1}"/>
+    </xacro:if>
+  </xacro:macro>
+
   <xacro:macro name="esferas_raios" params="lista sinal">
     <xacro:if value="${lista != []}">
       <collision>
@@ -237,7 +252,7 @@
         </visual>
         <!-- Com o aro montado a roda tem superfície contínua de rolamento:
              um cilindro no raio efetivo (r_max menos a deflexão estática). -->
-        <collision>
+        <collision name="aro_${prefixo}">
           <origin xyz="0 0 0" rpy="${pi/2} 0 0"/>
           <geometry>
             <cylinder radius="${R['raio_com_aro']}" length="${R['largura_com_aro']}"/>
@@ -247,6 +262,7 @@
 
       <xacro:unless value="${com_aro}">
         <xacro:esferas_raios lista="${ESF}" sinal="${lado}"/>
+        <xacro:esferas_pontas prefixo="${prefixo}" lista="${PONTAS}" sinal="${lado}"/>
       </xacro:unless>
     </link>
     <joint name="csts_${prefixo}" type="revolute">
@@ -270,6 +286,25 @@
       <minDepth>0.001</minDepth>
       <maxVel>0.5</maxVel>
       <material>Gazebo/Orange</material>
+
+      <!-- Sensor de contato: publica ONDE a roda toca. Sem ele, o apoio na face
+           do espelho (o modo de falha do achado A-01) apareceria apenas como
+           "o rover não subiu", sem dizer por quê. -->
+      <sensor name="contato_${prefixo}" type="contact">
+        <always_on>true</always_on>
+        <update_rate>100</update_rate>
+        <topic>contatos</topic>
+        <contact>
+          <xacro:if value="${com_aro}">
+            <collision>aro_${prefixo}</collision>
+          </xacro:if>
+          <xacro:unless value="${com_aro}">
+            <collision>ponta_${prefixo}_0</collision>
+            <collision>ponta_${prefixo}_1</collision>
+            <collision>ponta_${prefixo}_2</collision>
+          </xacro:unless>
+        </contact>
+      </sensor>
     </gazebo>
   </xacro:macro>
 
@@ -307,6 +342,19 @@
     <material>Gazebo/BlueTransparent</material>
   </gazebo>
 
+  <!-- Odometria de VERDADE-TERRENO. Não é a odometria do rover: é a referência
+       contra a qual medir o erro da odometria por encoder (ensaio ENS-15), que
+       a complacência do C-STS degrada. -->
+  <gazebo>
+    <plugin filename="gz-sim-odometry-publisher-system"
+            name="gz::sim::systems::OdometryPublisher">
+      <odom_frame>odom</odom_frame>
+      <robot_base_frame>base_footprint</robot_base_frame>
+      <odom_publish_frequency>50</odom_publish_frequency>
+      <dimensions>3</dimensions>
+    </plugin>
+  </gazebo>
+
   <xacro:include filename="$(find rover_frugal_description)/urdf/sensores.gazebo.xacro"/>
 
   <!-- ==================================================================== -->
@@ -329,10 +377,13 @@
           <state_interface name="effort"/>
         </joint>
 
+        <!-- Tração por ESFORÇO, não por velocidade: é o nó `tracao` que aplica
+             a curva torque-velocidade do motorredutor. Com interface de
+             velocidade o motor simulado teria torque de stall a 1,5 m/s. -->
         <joint name="tracao_${prefixo}">
-          <command_interface name="velocity">
-            <param name="min">${-J['tracao']['velocidade_maxima']}</param>
-            <param name="max">${J['tracao']['velocidade_maxima']}</param>
+          <command_interface name="effort">
+            <param name="min">${-J['tracao']['esforco_maximo']}</param>
+            <param name="max">${J['tracao']['esforco_maximo']}</param>
           </command_interface>
           <state_interface name="position"/>
           <state_interface name="velocity"/>

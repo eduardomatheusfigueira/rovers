@@ -25,7 +25,8 @@ IDS = ("FL", "FR", "RL", "RR")
 COLUNAS = [
     "t", "x", "y", "z", "velocidade", "arfagem_deg", "rolagem_deg",
     "carga_vert_g", "carga_long_g",
-    "corrente_A", "torque_max_Nm", "margem_torque",
+    "corrente_A", "tensao_V", "soc", "temp_motor_C", "taxa_C",
+    "torque_max_Nm", "margem_torque",
     "susp_FL_mm", "susp_FR_mm", "susp_RL_mm", "susp_RR_mm",
     "csts_FL_deg", "csts_FR_deg", "csts_RL_deg", "csts_RR_deg",
     "energia_csts_J", "estercamento_max_deg",
@@ -61,6 +62,11 @@ class Registrador(Node):
         self.create_subscription(Odometry, "/odom_verdade", self._on_odom, 20)
         self.create_subscription(Float64MultiArray, "/molas_passivas/energia_csts",
                                  self._on_energia, 10)
+        # Grandezas elétricas medidas pelo nó de tração (curva do motorredutor,
+        # queda de tensão do pack e modelo térmico) — preferíveis à estimativa
+        # por esforço de junta.
+        self.create_subscription(Float64MultiArray, "/tracao/eletrico",
+                                 self._on_eletrico, 10)
 
         self.create_timer(1.0 / self.get_parameter("frequencia_hz").value, self._gravar)
         self.get_logger().info(f"registrando telemetria em {caminho}")
@@ -95,8 +101,9 @@ class Registrador(Node):
         if torques:
             t_max = max(torques)
             self.dados["torque_max_Nm"] = t_max
-            self.dados["corrente_A"] = 4.0 * t_max / (KT * REDUCAO * ETA)
             self.dados["margem_torque"] = TORQUE_STALL / max(t_max, 1e-3)
+            if self.dados["corrente_A"] == 0.0:      # fallback sem o nó de tração
+                self.dados["corrente_A"] = 4.0 * t_max / (KT * REDUCAO * ETA)
 
     def _on_odom(self, msg: Odometry) -> None:
         p = msg.pose.pose.position
@@ -106,6 +113,12 @@ class Registrador(Node):
 
     def _on_energia(self, msg: Float64MultiArray) -> None:
         self.dados["energia_csts_J"] = float(sum(msg.data))
+
+    def _on_eletrico(self, msg: Float64MultiArray) -> None:
+        if len(msg.data) >= 6:
+            (self.dados["corrente_A"], self.dados["tensao_V"], self.dados["soc"],
+             _wh, self.dados["temp_motor_C"], self.dados["taxa_C"]) = (
+                float(v) for v in msg.data[:6])
 
     def _gravar(self) -> None:
         agora = self.get_clock().now().nanoseconds * 1e-9

@@ -227,3 +227,106 @@ def test_modelo_termico_do_supervisor_bate_com_o_do_dimensionamento():
         sup_t.passo(corrente, dt)
     assert sup_t.temperatura == pytest.approx(
         ref.temperatura(corrente, 30.0), rel=0.02)
+
+
+# =========================================================================
+# Modelo de motor, bateria e térmica dentro do controle
+# =========================================================================
+from rover_frugal_control.motor_dc import (  # noqa: E402
+    ControleTracao, MotorCC, PackBateria, Termica)
+
+
+@pytest.fixture(scope="module")
+def motor():
+    return MotorCC(
+        kv_rpm_por_volt=P.powertrain.motor.kv_rpm_por_volt,
+        resistencia=P.powertrain.motor.resistencia_armadura,
+        corrente_vazio=P.powertrain.motor.corrente_vazio,
+        reducao=P.powertrain.reducao,
+        eficiencia_reducao=P.powertrain.eficiencia_reducao,
+        limite_corrente=P.powertrain.limite_corrente_driver,
+    )
+
+
+def test_motor_do_no_ros_bate_com_o_do_dimensionamento(motor):
+    """O motor simulado precisa ser o motor dimensionado, não um genérico."""
+    from simulador_python.powertrain import MotorCC as Referencia
+    ref = Referencia()
+    assert motor.torque_stall_saida == pytest.approx(ref.torque_stall_saida, rel=1e-9)
+    assert motor.omega_vazio_saida == pytest.approx(ref.omega_vazio_saida, rel=1e-9)
+    for w in (0.5, 1.14, 3.0, 5.0):
+        assert motor.torque_disponivel(w) == pytest.approx(
+            ref.ponto_operacao(w)["torque_saida"], rel=1e-9)
+
+
+def test_torque_cai_com_a_rotacao(motor):
+    """A falha silenciosa que este modelo evita: stall a qualquer velocidade."""
+    ws = [0.0, 1.0, 2.0, 4.0, 6.0, motor.omega_vazio_saida]
+    torques = [motor.torque_disponivel(w) for w in ws]
+    assert all(a >= b for a, b in zip(torques, torques[1:]))
+    assert torques[0] == pytest.approx(motor.torque_stall_saida, rel=0.02)
+    assert torques[-1] == pytest.approx(0.0, abs=0.2)
+
+
+def test_torque_na_velocidade_de_escada_atende_a_margem(motor):
+    omega = P.cinematica.velocidade_escada / P.roda.raio_max
+    margem = motor.torque_disponivel(omega) / P.csts.torque_projeto
+    assert margem >= P.kpi.margem_torque.minimo
+
+
+def test_queda_de_tensao_reduz_o_torque(motor):
+    pack = PackBateria()
+    omega = 2.0
+    cheio = motor.torque_disponivel(omega, pack.tensao(0.0))
+    carregado = motor.torque_disponivel(omega, pack.tensao(28.6))
+    assert carregado < cheio
+
+
+def test_pack_do_no_ros_bate_com_o_dimensionamento():
+    from simulador_python.powertrain import PackBateria as Referencia
+    a, b = PackBateria(), Referencia()
+    assert a.capacidade_ah == pytest.approx(b.capacidade_ah)
+    assert a.energia_wh == pytest.approx(b.energia_wh)
+    assert a.r_interna == pytest.approx(b.r_interna)
+
+
+def test_controle_satura_no_torque_disponivel(motor):
+    """A saturação é física — o que o motor entrega —, não um clip arbitrário."""
+    c = ControleTracao(motor)
+    omega = 4.0
+    torque, _ = c.passo(omega_desejada=50.0, omega_medida=omega,
+                        tensao=12.8, dt=0.005)
+    assert torque == pytest.approx(motor.torque_disponivel(omega, 12.8), rel=1e-9)
+
+
+def test_anti_windup_evita_disparo_apos_saturacao(motor):
+    """Sem anti-windup o integrador carrega na escada e o rover dispara ao engatar."""
+    c = ControleTracao(motor)
+    for _ in range(400):
+        c.passo(omega_desejada=30.0, omega_medida=0.0, tensao=12.8, dt=0.005)
+    assert abs(c.integral) <= c.limite_integral
+
+
+def test_fator_de_torque_do_supervisor_reduz_o_comando(motor):
+    c = ControleTracao(motor)
+    cheio, _ = c.passo(10.0, 1.0, 12.8, 0.005, fator_torque=1.0)
+    c.integral = 0.0
+    reduzido, _ = c.passo(10.0, 1.0, 12.8, 0.005, fator_torque=0.5)
+    assert reduzido < cheio
+
+
+def test_termica_do_no_ros_bate_com_o_dimensionamento():
+    from simulador_python.powertrain import ModeloTermicoMotor
+    ref = ModeloTermicoMotor()
+    t = Termica(resistencia=ref.resistencia, r_termica=ref.r_termica,
+                c_termica=ref.c_termica, ambiente=ref.temp_ambiente)
+    for _ in range(int(30.0 / 0.005)):
+        t.passo(7.2, 0.005)
+    assert t.temperatura == pytest.approx(ref.temperatura(7.2, 30.0), rel=0.02)
+
+
+def test_corrente_para_torque_e_inversa(motor):
+    for torque in (1.0, 5.0, 10.0):
+        i = motor.corrente_para_torque(torque)
+        recuperado = motor.kt * (i - motor.corrente_vazio) * motor.reducao * motor.eficiencia_reducao
+        assert recuperado == pytest.approx(torque, rel=1e-9)

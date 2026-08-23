@@ -113,6 +113,12 @@
 | **REQ-514** | Modo escada bloqueado sem piso seco | confirmação explícita | A | `test_modo_escada_bloqueado_sem_confirmar_piso_seco` | ✅ |
 | **REQ-515** | Rearme após failsafe é sempre explícito | nunca automático | A | `test_rearme_e_sempre_explicito` | ✅ |
 | **REQ-516** | Validação do modelo contra ensaio físico | ±40% no pico de aceleração | S+E | ENS-06 | ⬜ |
+| **REQ-517** | Motor simulado = motor dimensionado | curva ponto a ponto | A | `test_motor_do_no_ros_bate_com_o_dimensionamento` | ✅ |
+| **REQ-518** | Torque disponível cai com a rotação | monotônico até zero em ω₀ | A | `test_torque_cai_com_a_rotacao` | ✅ |
+| **REQ-519** | Controle de tração satura no torque físico | não em limite arbitrário | A | `test_controle_satura_no_torque_disponivel` | ✅ |
+| **REQ-520** | Anti-windup no PI de tração | integrador limitado sob saturação | A | `test_anti_windup_evita_disparo_apos_saturacao` | ✅ |
+| **REQ-521** | Contato da roda observável por sensor | pontas nomeadas, tópico `/contatos` | A | `test_sensor_de_contato_existe_nas_duas_variantes` | ✅ |
+| **REQ-522** | Odometria de verdade-terreno disponível | plugin de odometria no modelo | A | `test_odometria_de_verdade_terreno_publicada` | ✅ |
 
 ---
 
@@ -143,7 +149,7 @@ graph LR
 
 | Situação | Quantidade | Observação |
 | :--- | ---: | :--- |
-| ✅ Verificado por análise/simulação automatizada | 33 | cobertos por 143 testes automatizados |
+| ✅ Verificado por análise/simulação automatizada | 39 | cobertos por 156 testes automatizados |
 | 🟡 Verificado em simulação, pendente de ensaio físico | 13 | dependem da Fase 4 |
 | ⬜ Pendente | 15 | dependem de hardware montado |
 

@@ -197,14 +197,50 @@ def test_esferas_cobrem_o_raio_sem_buracos(urdf_sem_aro):
     """Esferas espaçadas demais deixariam o nariz do degrau 'passar entre' elas."""
     robo = yourdfpy.URDF.load(urdf_sem_aro, load_meshes=False)
     roda = next(l for l in robo.robot.links if l.name == "roda_FL")
-    pontos = [(c.origin[0, 3], c.origin[2, 3], c.geometry.sphere.radius)
-              for c in roda.collisions]
-    por_raio = len(pontos) // P.roda.num_raios_N
+    cadeia = [(c.origin[0, 3], c.origin[2, 3], c.geometry.sphere.radius)
+              for c in roda.collisions if not (c.name or "").startswith("ponta_")]
+    pontas = [(c.origin[0, 3], c.origin[2, 3], c.geometry.sphere.radius)
+              for c in roda.collisions if (c.name or "").startswith("ponta_")]
+
+    assert len(pontas) == P.roda.num_raios_N, "uma ponta nomeada por raio"
+    por_raio = len(cadeia) // P.roda.num_raios_N
     for s in range(P.roda.num_raios_N):
-        trecho = pontos[s * por_raio:(s + 1) * por_raio]
+        trecho = cadeia[s * por_raio:(s + 1) * por_raio]
         for (x1, z1, r1), (x2, z2, r2) in zip(trecho, trecho[1:]):
             assert math.hypot(x2 - x1, z2 - z1) <= r1 + r2 + 1e-9, \
                 "lacuna entre esferas de colisão consecutivas"
+        # A ponta precisa emendar na última esfera da cadeia daquele raio
+        xf, zf, rf = trecho[-1]
+        assert any(math.hypot(px - xf, pz - zf) <= rf + pr + 1e-9
+                   for px, pz, pr in pontas), "ponta descolada da cadeia do raio"
+
+
+def test_pontas_sao_colisoes_nomeadas_para_o_sensor_de_contato(urdf_sem_aro):
+    """O sensor de contato referencia as pontas pelo nome: elas precisam existir."""
+    robo = yourdfpy.URDF.load(urdf_sem_aro, load_meshes=False)
+    xml = open(urdf_sem_aro, encoding="utf-8").read()
+    for w in IDS:
+        roda = next(l for l in robo.robot.links if l.name == f"roda_{w}")
+        nomes = {c.name for c in roda.collisions if c.name}
+        for i in range(P.roda.num_raios_N):
+            assert f"ponta_{w}_{i}" in nomes
+            assert f"<collision>ponta_{w}_{i}</collision>" in xml, \
+                "sensor de contato não referencia a ponta"
+
+
+def test_sensor_de_contato_existe_nas_duas_variantes(urdf_com_aro, urdf_sem_aro):
+    for caminho in (urdf_com_aro, urdf_sem_aro):
+        xml = open(caminho, encoding="utf-8").read()
+        for w in IDS:
+            assert f'name="contato_{w}" type="contact"' in xml
+        assert "<topic>contatos</topic>" in xml
+
+
+def test_odometria_de_verdade_terreno_publicada(urdf_com_aro):
+    """Referência para medir o erro da odometria por encoder (ENS-15)."""
+    xml = open(urdf_com_aro, encoding="utf-8").read()
+    assert "gz-sim-odometry-publisher-system" in xml
+    assert "<robot_base_frame>base_footprint</robot_base_frame>" in xml
 
 
 def test_ventre_tem_colisao(robo):

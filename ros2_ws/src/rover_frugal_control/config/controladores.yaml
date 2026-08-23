@@ -11,7 +11,7 @@ controller_manager:
     esterco_controller:
       type: position_controllers/JointGroupPositionController
     tracao_controller:
-      type: velocity_controllers/JointGroupVelocityController
+      type: effort_controllers/JointGroupEffortController
     passivas_controller:
       type: effort_controllers/JointGroupEffortController
 esterco_controller:
@@ -50,6 +50,17 @@ cinematica_4ws:
     velocidade_escada: 0.25
     frequencia_hz: 200.0
     timeout_cmd_vel_s: 0.3
+    use_sim_time: true
+tracao:
+  ros__parameters:
+    reducao: 172.0
+    kv_rpm_por_volt: 1000.0
+    resistencia_motor: 1.1
+    corrente_vazio: 0.35
+    eficiencia_reducao: 0.72
+    limite_corrente: 20.0
+    consumo_auxiliar_w: 6.5
+    frequencia_hz: 200.0
     use_sim_time: true
 molas_passivas:
   ros__parameters:

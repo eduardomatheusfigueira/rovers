@@ -62,7 +62,7 @@ ros2_ws/src/
 │   ├── config/parametros.yaml      ← GERADO do arquivo mestre
 │   ├── meshes/*.stl                ← GERADAS do mesmo perfil de raio da física
 │   └── urdf/rover_frugal.urdf.xacro   escrito à mão, SEM nenhum número
-├── rover_frugal_control/       cinemática 4WS, molas passivas, supervisor
+├── rover_frugal_control/       cinemática 4WS, tração, molas passivas, supervisor
 ├── rover_frugal_gazebo/        mundos SDF (gerados), ponte ros_gz, launch
 └── rover_frugal_bringup/       missão, ensaios, registrador de telemetria
 ```
@@ -166,7 +166,42 @@ A transição entre os dois regimes — o colapso local — é o que o modelo Py
 trata e o Gazebo não. Ela é também o maior risco técnico em aberto do projeto
 (F-01 na FMEA) e o objeto do ensaio ENS-04.
 
-### 4.5. Massa e inércia vêm das malhas, não de estimativa
+### 4.5. Tração por esforço, com a curva real do motorredutor
+
+Se a tração for comandada por **velocidade**, o `ros2_control` pede a rotação e o
+Gazebo entrega qualquer torque até o limite da junta. O motor simulado teria
+**torque de stall a 1,53 m/s** — fisicamente impossível — e o rover subiria
+escadas que o motorredutor real não sustenta. A margem de torque de 1,61 nunca
+seria testada: a simulação simplesmente não a exerceria.
+
+Por isso a interface de tração é de **esforço**, e o nó `tracao` faz a conversão:
+
+```
+velocidade desejada de roda ──►  PI de velocidade
+                                      │
+                        saturado pelo torque que o motorredutor
+                        CONSEGUE entregar naquela rotação e tensão
+                                      │
+                                      ▼
+                          esforço → tracao_controller
+```
+
+Três limites da análise passam a valer dentro do simulador:
+
+| Limite | Como entra |
+| :--- | :--- |
+| Curva torque-velocidade | $T(\omega) = K_t\,(I - I_0)\,i\,\eta$ com $I = (V - K_e\omega i)/R_a$ |
+| Queda de tensão do pack | 28,6 A de pico sobre 50 mΩ derrubam a tensão e, com ela, o torque |
+| Limite térmico | modelo I²t por motor; ao atingir 115 °C o fator de torque daquela roda vai a zero |
+
+O PI tem **anti-windup**: sem ele o integrador carrega durante a saturação na
+escada e o rover dispara quando a roda finalmente engata — um artefato que
+pareceria "o rover pulou o degrau".
+
+Um teste garante que o motor simulado é o motor dimensionado, ponto a ponto da
+curva: `test_motor_do_no_ros_bate_com_o_dimensionamento`.
+
+### 4.6. Massa e inércia vêm das malhas, não de estimativa
 
 O gerador de malhas calcula o volume de material de cada peça — considerando
 preenchimento real de impressão (raios e lâmina do C-STS a 100%, cubos e mangas
@@ -216,6 +251,8 @@ sejam **diretamente comparáveis** aos de ensaio de campo, sem conversão:
 | `/camera_fpv/image_raw` | `sensor_msgs/Image` | câmera FPV 150°, 640×480 |
 | `/joint_states` | `sensor_msgs/JointState` | encoders + realimentação dos servos |
 | `/contatos` | `ros_gz_interfaces/Contacts` | *(só em simulação)* onde a roda toca |
+| `/odom_verdade` | `nav_msgs/Odometry` | *(só em simulação)* referência para medir o erro de odometria |
+| `/tracao/eletrico` | `Float64MultiArray` | corrente, tensão, SOC, Wh, temperatura, taxa C |
 | `/supervisor/estado` | `std_msgs/String` | máquina de estados de `02_Engenharia/08` |
 | `/molas_passivas/energia_csts` | `Float64MultiArray` | energia armazenada nas quatro molas |
 
@@ -224,7 +261,14 @@ O CSV do registrador tem **as mesmas colunas** que o gêmeo digital 3D exporta.
 > **Sobre `/contatos`:** é o tópico que permite verificar *onde* a roda toca —
 > no nariz, no piso ou na **face do espelho**. O apoio na face do espelho é
 > exatamente o modo de falha do achado A-01, e sem instrumentar o contato ele
-> apareceria apenas como "o rover não subiu", sem explicar por quê.
+> apareceria apenas como "o rover não subiu", sem explicar por quê. As pontas dos
+> raios são colisões **nomeadas** (`ponta_FL_0`…) justamente para o sensor de
+> contato poder referenciá-las.
+>
+> **Sobre `/odom_verdade`:** não é a odometria do rover. É a referência contra a
+> qual medir o **erro** da odometria por encoder, que a complacência do C-STS
+> degrada (30° de atraso da roda em relação ao motor sob torque nominal). É o
+> ensaio ENS-15, executável em simulação antes de existir hardware.
 
 ---
 
@@ -280,6 +324,9 @@ python3 -m pytest testes/test_ros_urdf.py testes/test_ros_controle.py -v
 | escada do mundo = escada do projeto | não se simula outra escada |
 | $\omega\,\Delta t < 0{,}5$ | passo de integração resolve o contato |
 | cinemática do nó ROS = `simulador_python.kinematics` | **ENS-01 em software** |
+| curva do motor do nó ROS = `simulador_python.powertrain` | o motor simulado é o motor dimensionado |
+| torque cai com a rotação | a falha silenciosa de "stall a qualquer velocidade" não passa |
+| PI de tração tem anti-windup | o rover não "pula" o degrau ao sair da saturação |
 | supervisor: 43° de arfagem em escada não dispara proteção | o limiar por modo funciona |
 | supervisor: I²t corta e retoma após resfriar | a proteção térmica é integral |
 
@@ -292,10 +339,10 @@ python3 -m pytest testes/test_ros_urdf.py testes/test_ros_controle.py -v
 2. **Deformação do PVC não é modelada.** Os braços são rígidos; a flexão real
    dos tubos muda um pouco a geometria de contato sob carga.
 3. **Histerese do elástico** é aproximada por amortecimento viscoso linear.
-4. **Não há modelo elétrico dentro do Gazebo.** O limite de torque é aplicado
-   como limite de junta; corrente e temperatura são estimadas fora, pelo
-   supervisor. Um `hardware_interface` com o modelo do motorredutor é o próximo
-   passo natural.
+4. **O modelo elétrico roda como nó, não como `hardware_interface`.** A curva do
+   motorredutor, a queda de tensão e o I²t estão implementados e testados, mas
+   num nó ROS a 200 Hz. Migrá-los para um `hardware_interface` permitiria usar o
+   mesmo binário em simulação e no hardware.
 5. **Descida de escada** não foi analisada com o mesmo rigor da subida — vale
    para todos os modelos do projeto.
 6. **Custo de contato.** A variante sem aro tem 324 esferas de colisão no total;
@@ -307,7 +354,7 @@ python3 -m pytest testes/test_ros_urdf.py testes/test_ros_controle.py -v
 
 | Passo | Por quê |
 | :--- | :--- |
-| `hardware_interface` com o modelo do motorredutor | traz curva torque-velocidade, corrente e I²t para dentro do `ros2_control`, e o mesmo controlador passa a servir simulação e hardware |
+| Migrar o nó `tracao` para um `hardware_interface` | hoje o modelo do motorredutor roda como nó; dentro do `ros2_control` ele serviria simulação e hardware com o mesmo binário |
 | Rodar ENS-06 em simulação e comparar com o modelo sagital | fecha o laço de validação previsto em `03_Simulacao/04` §4.3 |
 | Aproximação oblíqua da escada | é o caso que só o modelo 3D pode responder (H1 do documento de V&V) |
 | `ros2_control` no ESP32 via micro-ROS | permite que o **mesmo** nó de cinemática rode embarcado, cumprindo ENS-01 em hardware |

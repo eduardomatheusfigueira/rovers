@@ -70,13 +70,14 @@ def esferas_colisao_raios() -> list:
     de cada raio, com uma esfera maior na ponta representando a pastilha de
     borracha.
 
-    Devolve [x, z, raio] já no REFERENCIAL DO ELO da roda (eixo de giro = y),
+    Devolve (cadeia, pontas), ambas como [x, z, raio] no REFERENCIAL DO ELO
+    da roda (eixo de giro = y),
     para a roda do lado esquerdo. O lado direito é espelhado no xacro invertindo
     o sinal de z — é o que mantém a quiralidade dos raios curvos coerente nos
     dois lados do veículo.
     """
     r0, r1 = P.roda.raio_cubo, P.roda.raio_max
-    esferas = []
+    esferas, pontas = [], []
     for s in range(P.roda.num_raios_N):
         base = s * 2.0 * np.pi / P.roda.num_raios_N
 
@@ -107,13 +108,18 @@ def esferas_colisao_raios() -> list:
             esferas.append(list(candidato))
             anterior = candidato
 
-        # Pastilha de borracha na ponta: esfera maior, tangente a r_max por fora
+        # Pastilha de borracha na ponta: esfera maior, tangente a r_max por fora.
+        # Sai da cadeia e vira colisão NOMEADA, para o sensor de contato poder
+        # referenciá-la: é a ponta que engata no nariz do degrau, e é o contato
+        # dela que precisa ser observável.
         r_pastilha = P.roda.pastilha_borracha.espessura + 0.006
         ang = base + P.roda.sentido_curvatura * P.roda.varredura_rad
         centro = r1 - r_pastilha
-        esferas[-1] = [float(centro * np.cos(ang)), float(-centro * np.sin(ang)),
-                       float(r_pastilha)]
-    return [[float(a), float(b), float(c)] for a, b, c in esferas]
+        pontas.append([float(centro * np.cos(ang)), float(-centro * np.sin(ang)),
+                       float(r_pastilha)])
+        esferas.pop()
+    return ([[float(a), float(b), float(c)] for a, b, c in esferas],
+            [[float(a), float(b), float(c)] for a, b, c in pontas])
 
 
 def gerar(destino: str = DESTINO) -> str:
@@ -257,7 +263,8 @@ def gerar(destino: str = DESTINO) -> str:
             for wid in IDS
         },
 
-        "colisao_raios": esferas_colisao_raios(),
+        "colisao_raios": esferas_colisao_raios()[0],
+        "colisao_pontas": esferas_colisao_raios()[1],
 
         "controle": {
             "frequencia_hz": P.controle.frequencia_malha_hz,
@@ -283,7 +290,8 @@ def gerar(destino: str = DESTINO) -> str:
     print(f"[OK] {destino}")
     print(f"     massa por elo: base {m_base:.3f} kg, roda {m_roda:.3f} kg, "
           f"cubo {m_cubo:.3f} kg, manga {m_manga:.3f} kg")
-    print(f"     esferas de colisão por roda: {len(dados['colisao_raios'])}")
+    print(f"     esferas de colisão por roda: {len(dados['colisao_raios'])} "
+          f"+ {len(dados['colisao_pontas'])} pontas nomeadas")
     print(f"     malha de juntas passivas: {dados['controle']['frequencia_passivas_hz']} Hz")
     return destino
 
@@ -306,7 +314,7 @@ def gerar_controladores(destino: str = DESTINO_CTRL) -> str:
             "esterco_controller": {
                 "type": "position_controllers/JointGroupPositionController"},
             "tracao_controller": {
-                "type": "velocity_controllers/JointGroupVelocityController"},
+                "type": "effort_controllers/JointGroupEffortController"},
             "passivas_controller": {
                 "type": "effort_controllers/JointGroupEffortController"},
         }},
@@ -326,6 +334,16 @@ def gerar_controladores(destino: str = DESTINO_CTRL) -> str:
             "velocidade_escada": float(P.cinematica.velocidade_escada),
             "frequencia_hz": float(P.controle.frequencia_malha_hz),
             "timeout_cmd_vel_s": float(P.controle.timeout_failsafe_ms / 1000.0),
+            "use_sim_time": True}},
+        "tracao": {"ros__parameters": {
+            "reducao": float(P.powertrain.reducao),
+            "kv_rpm_por_volt": float(P.powertrain.motor.kv_rpm_por_volt),
+            "resistencia_motor": float(P.powertrain.motor.resistencia_armadura),
+            "corrente_vazio": float(P.powertrain.motor.corrente_vazio),
+            "eficiencia_reducao": float(P.powertrain.eficiencia_reducao),
+            "limite_corrente": float(P.powertrain.limite_corrente_driver),
+            "consumo_auxiliar_w": float(P.energia.consumo_eletronica_w),
+            "frequencia_hz": float(P.controle.frequencia_malha_hz),
             "use_sim_time": True}},
         "molas_passivas": {"ros__parameters": {
             "rigidez_suspensao": float(sus.rigidez_por_roda),
